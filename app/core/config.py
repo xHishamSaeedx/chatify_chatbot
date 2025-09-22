@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     FIREBASE_CLIENT_X509_CERT_URL: str
     FIREBASE_UNIVERSE_DOMAIN: str = "googleapis.com"
     
+    # OpenAI Configuration
+    OPENAI_API_KEY: str = ""
+    
     @validator("BACKEND_CORS_ORIGINS", pre=True)
     def assemble_cors_origins(cls, v):
         if isinstance(v, str) and not v.startswith("["):

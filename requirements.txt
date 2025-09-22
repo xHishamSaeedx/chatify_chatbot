@@ -16,6 +16,9 @@ httpx==0.25.2
 # Firebase
 firebase-admin==6.4.0
 
+# OpenAI
+openai==1.3.0
+
 # Development tools
 black==23.11.0
 isort==5.12.0 

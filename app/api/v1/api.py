@@ -3,12 +3,13 @@ Main API router
 """
 
 from fastapi import APIRouter
-from app.api.v1.endpoints import firebase
+from app.api.v1.endpoints import firebase, chat
 
 api_router = APIRouter()
 
 # Include endpoint routers
 api_router.include_router(firebase.router, prefix="/firebase", tags=["firebase"])
+api_router.include_router(chat.router, prefix="/chat", tags=["chat"])
 
 
 @api_router.get("/")
