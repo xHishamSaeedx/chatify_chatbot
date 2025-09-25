@@ -1,0 +1,31 @@
+{
+  "name": "chatify-chatbot-firebase-setup",
+  "version": "1.0.0",
+  "description": "Firebase collections setup script for Chatify Chatbot",
+  "main": "create-firebase-collections.js",
+  "scripts": {
+    "setup-collections": "node create-firebase-collections.js",
+    "test-firebase": "node test-firebase-connection.js",
+    "check-env": "node check-env.js",
+    "populate-templates": "node populate-templates.js"
+  },
+  "keywords": [
+    "firebase",
+    "chatbot",
+    "collections",
+    "setup",
+    "chatify"
+  ],
+  "author": "Chatify Chatbot Team",
+  "license": "MIT",
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
