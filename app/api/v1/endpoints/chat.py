@@ -43,10 +43,15 @@ async def chat(request: ChatRequest):
         
         if not result["success"]:
             error_detail = result['error']
-            if "quota" in error_detail.lower() or "billing" in error_detail.lower():
+            # Check for quota/billing errors (including 429 status codes)
+            if ("quota" in error_detail.lower() or 
+                "billing" in error_detail.lower() or 
+                "exceeded" in error_detail.lower() or
+                "429" in error_detail or
+                "insufficient_quota" in error_detail.lower()):
                 raise HTTPException(
                     status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                    detail=f"OpenAI API quota exceeded: {error_detail}"
+                    detail=f"OpenAI API quota exceeded. Please check your billing details: {error_detail}"
                 )
             else:
                 raise HTTPException(
@@ -56,6 +61,9 @@ async def chat(request: ChatRequest):
         
         return ChatResponse(**result)
         
+    except HTTPException:
+        # Re-raise HTTPExceptions (like quota errors) without modification
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -79,10 +87,15 @@ async def simple_chat(request: SimpleChatRequest):
         
         if not result["success"]:
             error_detail = result['error']
-            if "quota" in error_detail.lower() or "billing" in error_detail.lower():
+            # Check for quota/billing errors (including 429 status codes)
+            if ("quota" in error_detail.lower() or 
+                "billing" in error_detail.lower() or 
+                "exceeded" in error_detail.lower() or
+                "429" in error_detail or
+                "insufficient_quota" in error_detail.lower()):
                 raise HTTPException(
                     status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                    detail=f"OpenAI API quota exceeded: {error_detail}"
+                    detail=f"OpenAI API quota exceeded. Please check your billing details: {error_detail}"
                 )
             else:
                 raise HTTPException(
@@ -92,6 +105,9 @@ async def simple_chat(request: SimpleChatRequest):
         
         return ChatResponse(**result)
         
+    except HTTPException:
+        # Re-raise HTTPExceptions (like quota errors) without modification
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -125,10 +141,15 @@ async def conversation_chat(request: ConversationRequest):
         
         if not result["success"]:
             error_detail = result['error']
-            if "quota" in error_detail.lower() or "billing" in error_detail.lower():
+            # Check for quota/billing errors (including 429 status codes)
+            if ("quota" in error_detail.lower() or 
+                "billing" in error_detail.lower() or 
+                "exceeded" in error_detail.lower() or
+                "429" in error_detail or
+                "insufficient_quota" in error_detail.lower()):
                 raise HTTPException(
                     status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                    detail=f"OpenAI API quota exceeded: {error_detail}"
+                    detail=f"OpenAI API quota exceeded. Please check your billing details: {error_detail}"
                 )
             else:
                 raise HTTPException(
@@ -138,6 +159,9 @@ async def conversation_chat(request: ConversationRequest):
         
         return ChatResponse(**result)
         
+    except HTTPException:
+        # Re-raise HTTPExceptions (like quota errors) without modification
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
