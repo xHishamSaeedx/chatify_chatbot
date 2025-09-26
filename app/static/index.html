@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatify Chatbot - Test Interface</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 900px;
+            height: 90vh;
+            min-height: 600px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .session-info {
+            background: rgba(255,255,255,0.2);
+            padding: 10px;
+            border-radius: 10px;
+            margin-top: 10px;
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background: #f9f9f9;
+            min-height: 400px;
+            max-height: calc(90vh - 300px);
+            display: flex;
+            flex-direction: column;
+            scroll-behavior: smooth;
+        }
+
+        /* Custom scrollbar for messages */
+        .messages::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .messages::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .messages::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 4px;
+        }
+
+        .messages::-webkit-scrollbar-thumb:hover {
+            background: #5a6fd8;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            border-radius: 15px;
+            max-width: 80%;
+            word-wrap: break-word;
+            flex-shrink: 0;
+        }
+
+        .message.user {
+            background: #667eea;
+            color: white;
+            margin-left: auto;
+            text-align: right;
+        }
+
+        .message.assistant {
+            background: #e0e0e0;
+            color: #333;
+            margin-right: auto;
+        }
+
+        .message.system {
+            background: #f0f0f0;
+            color: #666;
+            font-style: italic;
+            text-align: center;
+            margin: 0 auto;
+        }
+
+        .input-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        .message-input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            outline: none;
+            font-size: 16px;
+            background: white;
+        }
+
+        .message-input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .message-input:disabled {
+            background: #f5f5f5;
+            cursor: not-allowed;
+        }
+
+        .send-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+
+        .send-button:hover {
+            transform: translateY(-2px);
+        }
+
+        .send-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .control-button {
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .control-button:hover {
+            background: #e0e0e0;
+        }
+
+        .control-button.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .status {
+            text-align: center;
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .user-id-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        .template-select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Chatify Chatbot Test</h1>
+            <div class="session-info" id="sessionInfo">
+                <div>Session: <span id="sessionId">Not connected</span></div>
+                <div>User: <span id="userId">Not set</span></div>
+                <div>Messages: <span id="messageCount">0</span></div>
+            </div>
+        </div>
+
+        <div class="chat-container">
+            <div class="status disconnected" id="status">
+                Disconnected - Create a session to start chatting
+            </div>
+            
+            <div class="status" id="demoStatus" style="background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; display: none;">
+                🚀 Demo Mode: AI responses are simulated for testing. Add OpenAI API key for real AI responses.
+            </div>
+
+            <div class="controls">
+                <input type="text" id="userIdInput" class="user-id-input" placeholder="Enter User ID (e.g., user123)" value="user123">
+                <select id="templateSelect" class="template-select">
+                    <option value="general-assistant">General Assistant</option>
+                    <option value="customer-service">Customer Service</option>
+                    <option value="creative-writer">Creative Writer</option>
+                    <option value="technical-expert">Technical Expert</option>
+                    <option value="educational-tutor">Educational Tutor</option>
+                    <option value="business-consultant">Business Consultant</option>
+                </select>
+                <button class="control-button" id="createSessionBtn">Create Session</button>
+                <button class="control-button" id="endSessionBtn" disabled>End Session</button>
+                <button class="control-button" id="clearChatBtn">Clear Chat</button>
+                <button class="control-button" id="testScrollBtn">Test Scroll</button>
+            </div>
+
+            <div class="messages" id="messages">
+                <div class="message system">
+                    Welcome! Create a session to start chatting with the AI.
+                </div>
+            </div>
+            
+            <div id="scrollIndicator" style="text-align: center; color: #999; font-size: 12px; margin-bottom: 10px; display: none;">
+                ↑ Scroll to see more messages
+            </div>
+
+            <div class="input-container">
+                <input type="text" id="messageInput" class="message-input" placeholder="Type your message here..." disabled>
+                <button id="sendButton" class="send-button" disabled>Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class ChatbotTest {
+            constructor() {
+                this.sessionId = null;
+                this.userId = null;
+                this.messageCount = 0;
+                this.apiBase = 'http://localhost:8000/api/v1';
+                
+                this.initializeElements();
+                this.attachEventListeners();
+            }
+
+            initializeElements() {
+                this.sessionIdElement = document.getElementById('sessionId');
+                this.userIdElement = document.getElementById('userId');
+                this.messageCountElement = document.getElementById('messageCount');
+                this.statusElement = document.getElementById('status');
+                this.demoStatusElement = document.getElementById('demoStatus');
+                this.messagesElement = document.getElementById('messages');
+                this.scrollIndicator = document.getElementById('scrollIndicator');
+                this.messageInput = document.getElementById('messageInput');
+                this.sendButton = document.getElementById('sendButton');
+                this.createSessionBtn = document.getElementById('createSessionBtn');
+                this.endSessionBtn = document.getElementById('endSessionBtn');
+                this.clearChatBtn = document.getElementById('clearChatBtn');
+                this.testScrollBtn = document.getElementById('testScrollBtn');
+                this.userIdInput = document.getElementById('userIdInput');
+                this.templateSelect = document.getElementById('templateSelect');
+                
+                // Show demo mode indicator
+                this.demoStatusElement.style.display = 'block';
+                
+                // Add scroll listener
+                this.messagesElement.addEventListener('scroll', () => this.handleScroll());
+            }
+
+            attachEventListeners() {
+                this.sendButton.addEventListener('click', () => this.sendMessage());
+                this.messageInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.sendMessage();
+                });
+                this.createSessionBtn.addEventListener('click', () => this.createSession());
+                this.endSessionBtn.addEventListener('click', () => this.endSession());
+                this.clearChatBtn.addEventListener('click', () => this.clearChat());
+                this.testScrollBtn.addEventListener('click', () => this.testScroll());
+            }
+
+            async createSession() {
+                const userId = this.userIdInput.value.trim();
+                const templateId = this.templateSelect.value;
+
+                if (!userId) {
+                    alert('Please enter a User ID');
+                    return;
+                }
+
+                this.setLoading(true);
+                this.createSessionBtn.disabled = true;
+
+                try {
+                    const response = await fetch(`${this.apiBase}/chatbot/session`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            user_id: userId,
+                            template_id: templateId
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        this.sessionId = data.session_id;
+                        this.userId = userId;
+                        this.messageCount = 0;
+                        this.updateUI();
+                        this.addSystemMessage(`Session created! You're now chatting with the ${templateId.replace('-', ' ')} AI.`);
+                        this.setStatus('connected', 'Connected - Ready to chat!');
+                    } else {
+                        throw new Error(data.error || 'Failed to create session');
+                    }
+                } catch (error) {
+                    console.error('Error creating session:', error);
+                    alert(`Error creating session: ${error.message}`);
+                    this.setStatus('disconnected', 'Failed to create session');
+                } finally {
+                    this.setLoading(false);
+                    this.createSessionBtn.disabled = false;
+                }
+            }
+
+            async sendMessage() {
+                const message = this.messageInput.value.trim();
+                if (!message || !this.sessionId) {
+                    console.log('Cannot send message:', { message, sessionId: this.sessionId });
+                    return;
+                }
+
+                console.log('Sending message:', message);
+                this.addMessage('user', message);
+                this.messageInput.value = '';
+                this.setLoading(true);
+                this.sendButton.disabled = true;
+
+                try {
+                    const response = await fetch(`${this.apiBase}/chatbot/session/${this.sessionId}/message`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            message: message
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        this.addMessage('assistant', data.response);
+                        this.messageCount = data.message_count;
+                        this.updateUI();
+                    } else {
+                        throw new Error(data.error || 'Failed to send message');
+                    }
+                } catch (error) {
+                    console.error('Error sending message:', error);
+                    this.addMessage('system', `Error: ${error.message}`);
+                } finally {
+                    this.setLoading(false);
+                    this.sendButton.disabled = false;
+                }
+            }
+
+            async endSession() {
+                if (!this.sessionId) return;
+
+                this.setLoading(true);
+                this.endSessionBtn.disabled = true;
+
+                try {
+                    const response = await fetch(`${this.apiBase}/chatbot/session/${this.sessionId}`, {
+                        method: 'DELETE'
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        this.addSystemMessage('Session ended. Create a new session to continue chatting.');
+                        this.resetSession();
+                    } else {
+                        throw new Error(data.error || 'Failed to end session');
+                    }
+                } catch (error) {
+                    console.error('Error ending session:', error);
+                    alert(`Error ending session: ${error.message}`);
+                } finally {
+                    this.setLoading(false);
+                    this.endSessionBtn.disabled = false;
+                }
+            }
+
+            addMessage(role, content) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${role}`;
+                messageDiv.textContent = content;
+                this.messagesElement.appendChild(messageDiv);
+                
+                // Force scroll to bottom with animation
+                setTimeout(() => {
+                    this.messagesElement.scrollTo({
+                        top: this.messagesElement.scrollHeight,
+                        behavior: 'smooth'
+                    });
+                    this.handleScroll();
+                }, 50);
+            }
+
+            handleScroll() {
+                const isAtBottom = this.messagesElement.scrollTop + this.messagesElement.clientHeight >= this.messagesElement.scrollHeight - 10;
+                this.scrollIndicator.style.display = isAtBottom ? 'none' : 'block';
+            }
+
+            testScroll() {
+                // Add multiple test messages to demonstrate scrolling
+                const testMessages = [
+                    "This is test message 1 to demonstrate scrolling functionality.",
+                    "This is test message 2 to show how the chat area handles multiple messages.",
+                    "This is test message 3 to test the scroll behavior and ensure it works properly.",
+                    "This is test message 4 to demonstrate the scroll indicator and smooth scrolling.",
+                    "This is test message 5 to show that the chat area can handle long conversations.",
+                    "This is test message 6 to test the scroll-to-bottom functionality when new messages arrive.",
+                    "This is test message 7 to ensure the scrollbar is visible and functional.",
+                    "This is test message 8 to demonstrate the chat interface is working correctly.",
+                    "This is test message 9 to show the smooth scrolling animation.",
+                    "This is test message 10 to complete the scrolling test."
+                ];
+
+                testMessages.forEach((message, index) => {
+                    setTimeout(() => {
+                        this.addMessage(index % 2 === 0 ? 'user' : 'assistant', message);
+                    }, index * 200);
+                });
+            }
+
+            addSystemMessage(content) {
+                this.addMessage('system', content);
+            }
+
+            clearChat() {
+                this.messagesElement.innerHTML = '<div class="message system">Chat cleared. Create a session to start chatting.</div>';
+                this.scrollIndicator.style.display = 'none';
+            }
+
+            updateUI() {
+                this.sessionIdElement.textContent = this.sessionId || 'Not connected';
+                this.userIdElement.textContent = this.userId || 'Not set';
+                this.messageCountElement.textContent = this.messageCount;
+
+                const hasSession = !!this.sessionId;
+                this.messageInput.disabled = !hasSession;
+                this.sendButton.disabled = !hasSession;
+                this.endSessionBtn.disabled = !hasSession;
+                this.createSessionBtn.disabled = hasSession;
+                
+                // Focus on input when session is active
+                if (hasSession) {
+                    this.messageInput.focus();
+                }
+            }
+
+            resetSession() {
+                this.sessionId = null;
+                this.userId = null;
+                this.messageCount = 0;
+                this.updateUI();
+                this.setStatus('disconnected', 'Disconnected - Create a session to start chatting');
+            }
+
+            setStatus(type, message) {
+                this.statusElement.className = `status ${type}`;
+                this.statusElement.textContent = message;
+            }
+
+            setLoading(loading) {
+                if (loading) {
+                    this.sendButton.innerHTML = '<div class="loading"></div>';
+                } else {
+                    this.sendButton.textContent = 'Send';
+                }
+            }
+        }
+
+        // Initialize the chatbot test interface
+        document.addEventListener('DOMContentLoaded', () => {
+            new ChatbotTest();
+        });
+    </script>
+</body>
+</html>
+

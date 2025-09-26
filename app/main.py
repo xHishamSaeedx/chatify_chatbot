@@ -5,6 +5,7 @@ Main application entry point
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.api.v1.api import api_router
@@ -40,6 +41,9 @@ def create_application() -> FastAPI:
     
     # Include API router
     app.include_router(api_router, prefix=settings.API_V1_STR)
+    
+    # Mount static files
+    app.mount("/static", StaticFiles(directory="app/static"), name="static")
     
     return app
 

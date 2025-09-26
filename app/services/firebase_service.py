@@ -22,6 +22,12 @@ class FirebaseService:
         if self._initialized:
             return
         
+        # Check if Firebase configuration is available
+        if not settings.FIREBASE_PROJECT_ID:
+            print("⚠️  Firebase configuration not found. Running in demo mode without Firebase.")
+            self._initialized = True
+            return
+        
         try:
             # Create credentials from environment variables
             cred_dict = {
