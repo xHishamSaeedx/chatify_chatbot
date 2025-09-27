@@ -13,7 +13,7 @@ router = APIRouter()
 class CreateSessionRequest(BaseModel):
     """Request to create a new chatbot session"""
     user_id: str = Field(..., description="Unique user identifier")
-    template_id: Optional[str] = Field(None, description="Chatbot template to use")
+    template_id: Optional[str] = Field("general", description="Chatbot personality type to use")
 
 
 class SendMessageRequest(BaseModel):
@@ -200,5 +200,42 @@ async def cleanup_sessions():
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error during cleanup: {str(e)}"
+        )
+
+
+@router.get("/personalities")
+async def get_available_personalities():
+    """
+    Get available chatbot personalities
+    
+    This endpoint returns a list of all available chatbot personality types
+    that users can choose from when creating a session.
+    """
+    try:
+        personalities = {
+            "general": "Friendly and casual general chatbot",
+            "baddie": "Confident, sassy baddie with attitude",
+            "hot-bold-slutty": "Bold, sexually confident and flirty",
+            "party-girl": "Fun, energetic party girl always ready for adventure",
+            "career-driven": "Focused, ambitious career-driven hustler",
+            "hippie-spiritual": "Peaceful, spiritual hippie with good vibes",
+            "content-creator": "Creative, social media savvy content creator",
+            "innocent-cute": "Sweet, innocent and cute personality",
+            "sarcastic-savage": "Witty, sarcastic with sharp tongue",
+            "hopeless-romantic": "Romantic, dreamy believer in true love",
+            "mysterious-quiet": "Mysterious, quiet and intriguing",
+            "pick-me-girl": "Tries too hard to be liked, puts others down",
+            "clingy-possessive": "Clingy, possessive and wants constant attention"
+        }
+        
+        return {
+            "success": True,
+            "personalities": personalities,
+            "default": "general"
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving personalities: {str(e)}"
         )
 

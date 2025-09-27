@@ -257,6 +257,7 @@
             <div class="session-info" id="sessionInfo">
                 <div>Session: <span id="sessionId">Not connected</span></div>
                 <div>User: <span id="userId">Not set</span></div>
+                <div>Personality: <span id="currentPersonality">Not selected</span></div>
                 <div>Messages: <span id="messageCount">0</span></div>
             </div>
         </div>
@@ -272,14 +273,22 @@
 
             <div class="controls">
                 <input type="text" id="userIdInput" class="user-id-input" placeholder="Enter User ID (e.g., user123)" value="user123">
-                <select id="templateSelect" class="template-select">
-                    <option value="general-assistant">General Assistant</option>
-                    <option value="customer-service">Customer Service</option>
-                    <option value="creative-writer">Creative Writer</option>
-                    <option value="technical-expert">Technical Expert</option>
-                    <option value="educational-tutor">Educational Tutor</option>
-                    <option value="business-consultant">Business Consultant</option>
+                <select id="personalitySelect" class="template-select">
+                    <option value="general">General - Friendly and casual</option>
+                    <option value="baddie">Baddie - Confident and sassy</option>
+                    <option value="hot-bold-slutty">Hot Bold - Bold and flirty</option>
+                    <option value="party-girl">Party Girl - Fun and energetic</option>
+                    <option value="career-driven">Career-Driven - Ambitious hustler</option>
+                    <option value="hippie-spiritual">Hippie - Peaceful and spiritual</option>
+                    <option value="content-creator">Content Creator - Creative and trendy</option>
+                    <option value="innocent-cute">Innocent - Sweet and cute</option>
+                    <option value="sarcastic-savage">Sarcastic - Witty and savage</option>
+                    <option value="hopeless-romantic">Romantic - Dreamy and loving</option>
+                    <option value="mysterious-quiet">Mysterious - Quiet and intriguing</option>
+                    <option value="pick-me-girl">Pick-Me - Tries too hard</option>
+                    <option value="clingy-possessive">Clingy - Possessive and needy</option>
                 </select>
+                <button class="control-button" id="loadPersonalitiesBtn">Load Personalities</button>
                 <button class="control-button" id="createSessionBtn">Create Session</button>
                 <button class="control-button" id="endSessionBtn" disabled>End Session</button>
                 <button class="control-button" id="clearChatBtn">Clear Chat</button>
@@ -318,6 +327,7 @@
             initializeElements() {
                 this.sessionIdElement = document.getElementById('sessionId');
                 this.userIdElement = document.getElementById('userId');
+                this.currentPersonalityElement = document.getElementById('currentPersonality');
                 this.messageCountElement = document.getElementById('messageCount');
                 this.statusElement = document.getElementById('status');
                 this.demoStatusElement = document.getElementById('demoStatus');
@@ -329,8 +339,9 @@
                 this.endSessionBtn = document.getElementById('endSessionBtn');
                 this.clearChatBtn = document.getElementById('clearChatBtn');
                 this.testScrollBtn = document.getElementById('testScrollBtn');
+                this.loadPersonalitiesBtn = document.getElementById('loadPersonalitiesBtn');
                 this.userIdInput = document.getElementById('userIdInput');
-                this.templateSelect = document.getElementById('templateSelect');
+                this.personalitySelect = document.getElementById('personalitySelect');
                 
                 // Show demo mode indicator
                 this.demoStatusElement.style.display = 'block';
@@ -348,11 +359,12 @@
                 this.endSessionBtn.addEventListener('click', () => this.endSession());
                 this.clearChatBtn.addEventListener('click', () => this.clearChat());
                 this.testScrollBtn.addEventListener('click', () => this.testScroll());
+                this.loadPersonalitiesBtn.addEventListener('click', () => this.loadPersonalities());
             }
 
             async createSession() {
                 const userId = this.userIdInput.value.trim();
-                const templateId = this.templateSelect.value;
+                const personalityId = this.personalitySelect.value;
 
                 if (!userId) {
                     alert('Please enter a User ID');
@@ -370,7 +382,7 @@
                         },
                         body: JSON.stringify({
                             user_id: userId,
-                            template_id: templateId
+                            template_id: personalityId
                         })
                     });
 
@@ -381,7 +393,8 @@
                         this.userId = userId;
                         this.messageCount = 0;
                         this.updateUI();
-                        this.addSystemMessage(`Session created! You're now chatting with the ${templateId.replace('-', ' ')} AI.`);
+                        const personalityName = this.personalitySelect.options[this.personalitySelect.selectedIndex].text;
+                        this.addSystemMessage(`Session created! You're now chatting with the ${personalityName} AI.`);
                         this.setStatus('connected', 'Connected - Ready to chat!');
                     } else {
                         throw new Error(data.error || 'Failed to create session');
@@ -393,6 +406,39 @@
                 } finally {
                     this.setLoading(false);
                     this.createSessionBtn.disabled = false;
+                }
+            }
+
+            async loadPersonalities() {
+                this.setLoading(true);
+                this.loadPersonalitiesBtn.disabled = true;
+
+                try {
+                    const response = await fetch(`${this.apiBase}/chatbot/personalities`);
+                    const data = await response.json();
+
+                    if (data.success) {
+                        // Clear existing options
+                        this.personalitySelect.innerHTML = '';
+                        
+                        // Add new options
+                        Object.entries(data.personalities).forEach(([id, description]) => {
+                            const option = document.createElement('option');
+                            option.value = id;
+                            option.textContent = `${id.charAt(0).toUpperCase() + id.slice(1).replace('-', ' ')} - ${description}`;
+                            this.personalitySelect.appendChild(option);
+                        });
+                        
+                        this.addSystemMessage(`Loaded ${Object.keys(data.personalities).length} personalities from the server.`);
+                    } else {
+                        throw new Error(data.error || 'Failed to load personalities');
+                    }
+                } catch (error) {
+                    console.error('Error loading personalities:', error);
+                    this.addSystemMessage(`Error loading personalities: ${error.message}`);
+                } finally {
+                    this.setLoading(false);
+                    this.loadPersonalitiesBtn.disabled = false;
                 }
             }
 
@@ -522,6 +568,14 @@
                 this.sessionIdElement.textContent = this.sessionId || 'Not connected';
                 this.userIdElement.textContent = this.userId || 'Not set';
                 this.messageCountElement.textContent = this.messageCount;
+                
+                // Update current personality display
+                if (this.sessionId && this.personalitySelect.value) {
+                    const personalityName = this.personalitySelect.options[this.personalitySelect.selectedIndex].text;
+                    this.currentPersonalityElement.textContent = personalityName;
+                } else {
+                    this.currentPersonalityElement.textContent = 'Not selected';
+                }
 
                 const hasSession = !!this.sessionId;
                 this.messageInput.disabled = !hasSession;
