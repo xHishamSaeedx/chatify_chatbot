@@ -184,7 +184,7 @@ async def get_session_stats():
 @router.post("/cleanup")
 async def cleanup_sessions():
     """
-    Clean up expired sessions
+    Clean up expired sessions from both memory and Firebase
     
     This endpoint manually triggers cleanup of expired sessions.
     """
@@ -193,7 +193,8 @@ async def cleanup_sessions():
         return {
             "success": True,
             "message": "Cleanup completed",
-            "cleaned_sessions": result["cleaned_sessions"],
+            "memory_sessions_cleaned": result["cleaned_sessions"],
+            "firebase_sessions_cleaned": result["firebase_cleaned"],
             "active_sessions": result["active_sessions"]
         }
     except Exception as e:

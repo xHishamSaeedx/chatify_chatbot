@@ -217,26 +217,35 @@ class SessionService:
     
     async def cleanup_expired_sessions(self) -> Dict[str, Any]:
         """
-        Clean up expired sessions
+        Clean up expired sessions from both memory and Firebase
         
         Returns:
             Cleanup results
         """
         current_time = datetime.utcnow()
         expired_sessions = []
+        firebase_cleaned = 0
         
+        # Clean up expired sessions in memory
         for session_id, session in self.active_sessions.items():
             last_activity = datetime.fromisoformat(session["last_activity"])
             if current_time - last_activity > self.session_timeout:
                 expired_sessions.append(session_id)
         
-        # End expired sessions
+        # End expired sessions in memory
         for session_id in expired_sessions:
             await self.end_session(session_id)
+        
+        # Clean up expired sessions in Firebase
+        try:
+            firebase_cleaned = await self._cleanup_firebase_sessions()
+        except Exception as e:
+            print(f"⚠️  Error cleaning up Firebase sessions: {e}")
         
         return {
             "success": True,
             "cleaned_sessions": len(expired_sessions),
+            "firebase_cleaned": firebase_cleaned,
             "active_sessions": len(self.active_sessions)
         }
     
@@ -260,6 +269,63 @@ class SessionService:
                 
         except Exception as e:
             print(f"⚠️  Error in Firebase cleanup task for session {session_id}: {e}")
+    
+    async def _cleanup_firebase_sessions(self) -> int:
+        """
+        Clean up expired sessions from Firebase
+        
+        Returns:
+            Number of sessions cleaned from Firebase
+        """
+        try:
+            # Get all sessions from Firebase
+            all_sessions = firebase_service.get_data("/userSessions")
+            if not all_sessions:
+                return 0
+            
+            current_time = datetime.utcnow()
+            cleaned_count = 0
+            
+            for session_id, session_data in all_sessions.items():
+                try:
+                    # Skip if session_data is not a dictionary
+                    if not isinstance(session_data, dict):
+                        continue
+                    
+                    # Check if session is expired
+                    if "last_activity" in session_data:
+                        last_activity = datetime.fromisoformat(session_data["last_activity"])
+                        if current_time - last_activity > self.session_timeout:
+                            # Delete expired session from Firebase
+                            firebase_service.delete_data(f"/userSessions/{session_id}")
+                            # Also delete conversation history if it exists
+                            firebase_service.delete_data(f"/conversations/{session_id}")
+                            cleaned_count += 1
+                            print(f"🗑️  Cleaned expired Firebase session: {session_id}")
+                    
+                    # Also clean up sessions marked as "ended"
+                    elif session_data.get("status") == "ended":
+                        # Check if it's been ended for more than 1 hour
+                        if "ended_at" in session_data:
+                            ended_at = datetime.fromisoformat(session_data["ended_at"])
+                            if current_time - ended_at > timedelta(hours=1):
+                                firebase_service.delete_data(f"/userSessions/{session_id}")
+                                firebase_service.delete_data(f"/conversations/{session_id}")
+                                cleaned_count += 1
+                                print(f"🗑️  Cleaned ended Firebase session: {session_id}")
+                
+                except Exception as e:
+                    print(f"⚠️  Error cleaning session {session_id}: {e}")
+                    continue
+            
+            if cleaned_count > 0:
+                print(f"✅ Cleaned {cleaned_count} expired sessions from Firebase")
+            
+            return cleaned_count
+            
+        except Exception as e:
+            print(f"⚠️  Error in Firebase session cleanup: {e}")
+            return 0
     
     async def _simulate_typing_delay(self, message: str):
         """
