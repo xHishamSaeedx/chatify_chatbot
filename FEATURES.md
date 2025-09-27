@@ -29,7 +29,13 @@ Chatify is a multi-personality chatbot system built with FastAPI, OpenAI, and Fi
 - **Emoji Delay** - Additional 0.2s per emoji
 - **Maximum Delay** - Capped at 8 seconds for very long messages
 
-### 5. **Robust Architecture**
+### 5. **Firebase-First Architecture**
+- **Template Management** - All personalities stored in Firebase
+- **Dynamic Loading** - Templates loaded from cloud database
+- **Fallback System** - Local general prompt if Firebase unavailable
+- **Centralized Control** - Easy template updates without code changes
+
+### 6. **Robust Architecture**
 - **FastAPI Backend** - High-performance async API
 - **OpenAI Integration** - GPT-powered responses
 - **Firebase Database** - Persistent session storage
@@ -74,9 +80,10 @@ app/
 ### Data Flow
 
 1. **Session Creation** → Generate UUID → Store in memory + Firebase
-2. **Message Processing** → OpenAI API → Response → Update history
-3. **Session End** → Mark as ended → Cleanup memory → Schedule Firebase cleanup
-4. **Background Cleanup** → Wait 30 seconds → Delete Firebase conversation history
+2. **Template Loading** → Fetch personality prompt from Firebase → Use for conversation
+3. **Message Processing** → OpenAI API → Response → Update history
+4. **Session End** → Mark as ended → Cleanup memory → Schedule Firebase cleanup
+5. **Background Cleanup** → Wait 30 seconds → Delete Firebase conversation history
 
 ## 🔧 API Endpoints
 
