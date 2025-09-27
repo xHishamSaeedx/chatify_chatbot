@@ -3,6 +3,7 @@ Session management service for chatbot conversations
 """
 
 import uuid
+import asyncio
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
 from app.services.firebase_service import firebase_service
@@ -15,6 +16,7 @@ class SessionService:
     def __init__(self):
         self.active_sessions: Dict[str, Dict[str, Any]] = {}
         self.session_timeout = timedelta(minutes=30)  # 30 minutes timeout
+        self.firebase_cleanup_delay = 30  # 30 seconds delay before Firebase cleanup
     
     async def create_session(self, user_id: str, template_id: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -98,6 +100,10 @@ class SessionService:
             user_message=user_message,
             system_prompt=system_prompt
         )
+        
+        # Add realistic typing delay based on message length
+        if ai_response["success"]:
+            await self._simulate_typing_delay(ai_response["content"])
         
         if not ai_response["success"]:
             return {
@@ -201,6 +207,9 @@ class SessionService:
         # Remove from active sessions
         del self.active_sessions[session_id]
         
+        # Schedule Firebase conversation history cleanup after delay
+        asyncio.create_task(self._cleanup_firebase_history_after_delay(session_id))
+        
         return {
             "success": True,
             "message": "Session ended successfully"
@@ -230,6 +239,61 @@ class SessionService:
             "cleaned_sessions": len(expired_sessions),
             "active_sessions": len(self.active_sessions)
         }
+    
+    async def _cleanup_firebase_history_after_delay(self, session_id: str):
+        """
+        Clean up Firebase conversation history after a delay
+        
+        Args:
+            session_id: Session identifier to clean up
+        """
+        try:
+            # Wait for the specified delay
+            await asyncio.sleep(self.firebase_cleanup_delay)
+            
+            # Delete conversation history from Firebase
+            try:
+                firebase_service.delete_data(f"/conversations/{session_id}")
+                print(f"✅ Cleaned up Firebase conversation history for session: {session_id}")
+            except Exception as e:
+                print(f"⚠️  Failed to clean up Firebase conversation history for session {session_id}: {e}")
+                
+        except Exception as e:
+            print(f"⚠️  Error in Firebase cleanup task for session {session_id}: {e}")
+    
+    async def _simulate_typing_delay(self, message: str):
+        """
+        Simulate realistic typing delay based on message length
+        
+        Args:
+            message: The message to calculate delay for
+        """
+        try:
+            # Base delay of 1-2 seconds
+            base_delay = 1.0 + (0.5 * (hash(message) % 3))  # 1.0 to 2.0 seconds
+            
+            # Count words and emojis
+            words = len(message.split())
+            emojis = len([char for char in message if ord(char) > 127])  # Count non-ASCII chars (emojis)
+            
+            # Additional delay for longer messages
+            # Each word adds ~0.3 seconds, each emoji adds ~0.2 seconds
+            word_delay = max(0, words - 2) * 0.3  # Only count words beyond the first 2
+            emoji_delay = emojis * 0.2
+            
+            total_delay = base_delay + word_delay + emoji_delay
+            
+            # Cap the delay at 8 seconds maximum
+            total_delay = min(total_delay, 8.0)
+            
+            print(f"⏱️  Typing delay: {total_delay:.1f}s (base: {base_delay:.1f}s, words: {word_delay:.1f}s, emojis: {emoji_delay:.1f}s)")
+            
+            await asyncio.sleep(total_delay)
+            
+        except Exception as e:
+            print(f"⚠️  Error in typing delay simulation: {e}")
+            # Fallback to 1 second delay if there's an error
+            await asyncio.sleep(1.0)
     
     async def _get_system_prompt(self, template_id: str) -> str:
         """

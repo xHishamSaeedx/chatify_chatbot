@@ -118,21 +118,21 @@ Create these basic endpoints in your FastAPI app:
 
 ## Simple Checklist
 
-### Week 1: Foundation
+### Week 1: Foundation (done)
 
 - [ ] Set up Firebase collections
 - [ ] Create 2-3 AI personality templates
 - [ ] Build basic API endpoints
 - [ ] Test endpoints work
 
-### Week 2: Single User
+### Week 2: Single User (done)
 
 - [ ] Build session management
 - [ ] Connect to OpenAI
 - [ ] Test: User chats with AI
 - [ ] Store conversation history
 
-### Week 3: Multiple Users
+### Week 3: Multiple Users (done)
 
 - [ ] Handle many users at once
 - [ ] Keep conversations separate
