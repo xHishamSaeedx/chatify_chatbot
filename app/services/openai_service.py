@@ -120,7 +120,10 @@ class OpenAIService:
         
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
-            print(f"📝 System prompt: {system_prompt[:100]}...")
+            print(f"📝 System prompt added to OpenAI messages (length: {len(system_prompt)} chars)")
+            print(f"📝 System prompt preview: {system_prompt[:150]}...")
+        else:
+            print(f"⚠️  No system prompt provided - using default OpenAI behavior")
         
         # Add conversation history (limit to last 10 messages for context)
         messages.extend(conversation_history[-10:])

@@ -363,37 +363,77 @@ class SessionService:
     
     async def _get_system_prompt(self, template_id: str) -> str:
         """
-        Get system prompt for a template from Firebase
+        Get combined system prompt (universal rules + personality prompt) from Firebase
         
         Args:
             template_id: Template identifier
             
         Returns:
-            System prompt
+            Combined system prompt
         """
-        # Try to get template from Firebase first
+        # Get universal rules
+        universal_rules = ""
+        try:
+            rules_data = firebase_service.get_data("/settings/universalRules")
+            if rules_data and rules_data.get("enabled", True):
+                universal_rules = rules_data.get("rules", "")
+                print(f"📋 Loaded universal rules (version: {rules_data.get('version', 'unknown')})")
+        except Exception as e:
+            print(f"⚠️  Could not load universal rules: {e}")
+        
+        # Get personality-specific prompt
+        personality_prompt = ""
         try:
             template_data = firebase_service.get_data(f"/templates/{template_id}")
-            if template_data and "systemPrompt" in template_data:
+            if template_data:
+                # Check for new format (personalityPrompt) or old format (systemPrompt)
+                personality_prompt = template_data.get("personalityPrompt") or template_data.get("systemPrompt", "")
                 print(f"📝 Using Firebase template: {template_id}")
-                return template_data["systemPrompt"]
         except Exception as e:
             print(f"⚠️  Firebase template not found for {template_id}: {e}")
         
-        # Fallback to local general prompt if Firebase fails
-        print(f"⚠️  Falling back to local general prompt for {template_id}")
-        return self._get_general_prompt()
+        # If no personality prompt found, use fallback
+        if not personality_prompt:
+            print(f"⚠️  Falling back to local general prompt for {template_id}")
+            personality_prompt = self._get_fallback_personality_prompt()
+        
+        # Combine universal rules with personality prompt
+        if universal_rules and personality_prompt:
+            combined_prompt = f"{universal_rules}\n\n{personality_prompt}"
+            print(f"✅ Combined prompt created: Universal Rules ({len(universal_rules)} chars) + Personality ({len(personality_prompt)} chars) = {len(combined_prompt)} chars total")
+        elif universal_rules:
+            combined_prompt = universal_rules
+            print(f"⚠️  Using only universal rules (no personality prompt found)")
+        elif personality_prompt:
+            combined_prompt = personality_prompt
+            print(f"⚠️  Using only personality prompt (no universal rules found)")
+        else:
+            # Ultimate fallback
+            combined_prompt = self._get_general_prompt()
+            print(f"⚠️  Using fallback general prompt")
+        
+        # Debug: Print the first 200 characters of the combined prompt
+        print(f"📄 Combined System Prompt Preview:\n{combined_prompt[:200]}...")
+        
+        return combined_prompt
+    
+    def _get_fallback_personality_prompt(self) -> str:
+        """
+        Get fallback personality-specific prompt
+        
+        Returns:
+            General personality prompt
+        """
+        return "You are a friendly person chatting with someone on a dating app. Keep it slightly cheezy and sexy."
     
     def _get_general_prompt(self) -> str:
         """
-        Get the general prompt as fallback
+        Get the complete general prompt as ultimate fallback
         
         Returns:
-            General system prompt
+            Complete system prompt with rules and personality
         """
-        return """You are a friendly person chatting with someone on a dating app. 
-
-CRITICAL RULES:
+        return """CRITICAL RULES:
 - Keep initial response short only 'Hi' or 'Heyy' . 
 - Keep responses VERY short (1-9 words max, like real texting)
 - Use casual language and shortforms (wyd, hru, lol, tbh, fr, etc.)
@@ -409,7 +449,8 @@ CRITICAL RULES:
 - If they say "same" respond "Nice" or "Cool"
 - Vary your responses - never use the same phrase twice
 - Keep it human and natural like real texting
-- Keep it slightly cheezy and sexy.
+
+You are a friendly person chatting with someone on a dating app. Keep it slightly cheezy and sexy.
 """
     
     

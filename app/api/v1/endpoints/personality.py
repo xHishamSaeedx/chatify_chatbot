@@ -30,13 +30,16 @@ async def get_all_personalities():
         for template_id, template_data in templates_data.items():
             if isinstance(template_data, dict):
                 # Normalize the data to handle both old and new formats
+                # Handle systemPrompt -> personalityPrompt migration
+                personality_prompt = template_data.get("personalityPrompt") or template_data.get("systemPrompt", "")
+                
                 personality = {
                     "id": template_id,
                     "name": template_data.get("name") or template_data.get("personalityType") or template_id,
                     "title": template_data.get("title") or template_data.get("name") or template_id.replace("-", " ").title(),
                     "description": template_data.get("description", ""),
                     "category": template_data.get("category", "general"),
-                    "systemPrompt": template_data.get("systemPrompt", ""),
+                    "personalityPrompt": personality_prompt,
                     "welcomeMessage": template_data.get("welcomeMessage", "Hello! How can I help you?"),
                     "model": template_data.get("model", "gpt-4o-mini"),
                     "temperature": template_data.get("temperature", 0.9),
@@ -77,13 +80,16 @@ async def get_personality(personality_id: str):
             )
         
         # Normalize the data to handle both old and new formats
+        # Handle systemPrompt -> personalityPrompt migration
+        personality_prompt = template_data.get("personalityPrompt") or template_data.get("systemPrompt", "")
+        
         personality = {
             "id": personality_id,
             "name": template_data.get("name") or template_data.get("personalityType") or personality_id,
             "title": template_data.get("title") or template_data.get("name") or personality_id.replace("-", " ").title(),
             "description": template_data.get("description", ""),
             "category": template_data.get("category", "general"),
-            "systemPrompt": template_data.get("systemPrompt", ""),
+            "personalityPrompt": personality_prompt,
             "welcomeMessage": template_data.get("welcomeMessage", "Hello! How can I help you?"),
             "model": template_data.get("model", "gpt-4o-mini"),
             "temperature": template_data.get("temperature", 0.9),

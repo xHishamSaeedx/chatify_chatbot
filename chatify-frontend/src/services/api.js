@@ -84,4 +84,19 @@ export const personalityAPI = {
   },
 };
 
+// Settings API
+export const settingsAPI = {
+  // Get universal rules
+  getUniversalRules: async () => {
+    const response = await api.get("/settings/universal-rules");
+    return response.data;
+  },
+
+  // Update universal rules
+  updateUniversalRules: async (rulesData) => {
+    const response = await api.put("/settings/universal-rules", rulesData);
+    return response.data;
+  },
+};
+
 export default api;

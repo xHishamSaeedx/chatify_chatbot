@@ -2,12 +2,13 @@ import { useState } from "react";
 import ChatInterface from "./components/ChatInterface";
 import SessionManager from "./components/SessionManager";
 import PersonalityManager from "./components/PersonalityManager";
+import UniversalRules from "./components/UniversalRules";
 import "./App.css";
 
 function App() {
   const [session, setSession] = useState(null);
   const [messages, setMessages] = useState([]);
-  const [activeTab, setActiveTab] = useState("chat"); // 'chat' or 'personalities'
+  const [activeTab, setActiveTab] = useState("chat"); // 'chat', 'personalities', or 'rules'
 
   const handleSessionCreated = (sessionData) => {
     setSession(sessionData);
@@ -76,7 +77,13 @@ function App() {
             }`}
             onClick={() => setActiveTab("personalities")}
           >
-            🎭 Manage Personalities
+            🎭 Personalities
+          </button>
+          <button
+            className={`tab-button ${activeTab === "rules" ? "active" : ""}`}
+            onClick={() => setActiveTab("rules")}
+          >
+            📋 Universal Rules
           </button>
         </div>
 
@@ -95,8 +102,10 @@ function App() {
               onNewMessage={handleNewMessage}
             />
           </>
-        ) : (
+        ) : activeTab === "personalities" ? (
           <PersonalityManager />
+        ) : (
+          <UniversalRules />
         )}
       </div>
     </div>

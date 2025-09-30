@@ -13,7 +13,7 @@ function PersonalityManager() {
     title: "",
     description: "",
     category: "general",
-    systemPrompt: "",
+    personalityPrompt: "",
     welcomeMessage: "Hello! How can I help you?",
     model: "gpt-4o-mini",
     temperature: 0.9,
@@ -81,7 +81,7 @@ function PersonalityManager() {
       title: personality.title,
       description: personality.description,
       category: personality.category || "general",
-      systemPrompt: personality.systemPrompt,
+      personalityPrompt: personality.personalityPrompt || "",
       welcomeMessage: personality.welcomeMessage,
       model: personality.model || "gpt-4o-mini",
       temperature: personality.temperature || 0.9,
@@ -118,7 +118,7 @@ function PersonalityManager() {
       title: "",
       description: "",
       category: "general",
-      systemPrompt: "",
+      personalityPrompt: "",
       welcomeMessage: "Hello! How can I help you?",
       model: "gpt-4o-mini",
       temperature: 0.9,
@@ -199,20 +199,21 @@ function PersonalityManager() {
               </div>
 
               <div className="form-group full-width">
-                <label htmlFor="systemPrompt">
-                  System Prompt <span className="required">*</span>
+                <label htmlFor="personalityPrompt">
+                  Personality Description <span className="required">*</span>
                 </label>
                 <textarea
-                  id="systemPrompt"
-                  name="systemPrompt"
-                  value={formData.systemPrompt}
+                  id="personalityPrompt"
+                  name="personalityPrompt"
+                  value={formData.personalityPrompt}
                   onChange={handleInputChange}
-                  placeholder="Enter the system prompt that defines this personality..."
+                  placeholder="Describe the unique personality traits and behavior... (Universal rules are applied automatically)"
                   required
                   rows="6"
                 />
                 <small>
-                  This is the core instruction that defines how the AI behaves
+                  Describe this personality&apos;s unique traits. Universal
+                  rules apply to all personalities automatically.
                 </small>
               </div>
 
