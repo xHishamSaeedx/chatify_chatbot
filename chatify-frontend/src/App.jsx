@@ -1,11 +1,13 @@
 import { useState } from "react";
 import ChatInterface from "./components/ChatInterface";
 import SessionManager from "./components/SessionManager";
+import PersonalityManager from "./components/PersonalityManager";
 import "./App.css";
 
 function App() {
   const [session, setSession] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [activeTab, setActiveTab] = useState("chat"); // 'chat' or 'personalities'
 
   const handleSessionCreated = (sessionData) => {
     setSession(sessionData);
@@ -38,7 +40,7 @@ function App() {
       <div className="chat-card">
         <div className="header">
           <h1>🤖 Chatify AI Chatbot</h1>
-          {session && (
+          {session && activeTab === "chat" && (
             <div className="session-info">
               <div className="info-item">
                 <span className="label">Session:</span>
@@ -60,17 +62,42 @@ function App() {
           )}
         </div>
 
-        <SessionManager
-          session={session}
-          onSessionCreated={handleSessionCreated}
-          onSessionEnded={handleSessionEnded}
-        />
+        {/* Tab Navigation */}
+        <div className="tab-navigation">
+          <button
+            className={`tab-button ${activeTab === "chat" ? "active" : ""}`}
+            onClick={() => setActiveTab("chat")}
+          >
+            💬 Chat
+          </button>
+          <button
+            className={`tab-button ${
+              activeTab === "personalities" ? "active" : ""
+            }`}
+            onClick={() => setActiveTab("personalities")}
+          >
+            🎭 Manage Personalities
+          </button>
+        </div>
 
-        <ChatInterface
-          session={session}
-          messages={messages}
-          onNewMessage={handleNewMessage}
-        />
+        {/* Conditional Content */}
+        {activeTab === "chat" ? (
+          <>
+            <SessionManager
+              session={session}
+              onSessionCreated={handleSessionCreated}
+              onSessionEnded={handleSessionEnded}
+            />
+
+            <ChatInterface
+              session={session}
+              messages={messages}
+              onNewMessage={handleNewMessage}
+            />
+          </>
+        ) : (
+          <PersonalityManager />
+        )}
       </div>
     </div>
   );

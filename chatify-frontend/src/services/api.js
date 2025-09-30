@@ -48,4 +48,40 @@ export const chatbotAPI = {
   },
 };
 
+// Personality Management API
+export const personalityAPI = {
+  // Get all personalities
+  getAllPersonalities: async () => {
+    const response = await api.get("/personalities/");
+    return response.data;
+  },
+
+  // Get a specific personality
+  getPersonality: async (personalityId) => {
+    const response = await api.get(`/personalities/${personalityId}`);
+    return response.data;
+  },
+
+  // Create a new personality
+  createPersonality: async (personalityData) => {
+    const response = await api.post("/personalities/", personalityData);
+    return response.data;
+  },
+
+  // Update a personality
+  updatePersonality: async (personalityId, personalityData) => {
+    const response = await api.put(
+      `/personalities/${personalityId}`,
+      personalityData
+    );
+    return response.data;
+  },
+
+  // Delete a personality
+  deletePersonality: async (personalityId) => {
+    const response = await api.delete(`/personalities/${personalityId}`);
+    return response.data;
+  },
+};
+
 export default api;
