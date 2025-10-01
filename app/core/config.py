@@ -23,9 +23,30 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
     
+    @property
+    def is_production(self) -> bool:
+        """Check if running in production environment"""
+        import os
+        return os.getenv("ENVIRONMENT", self.ENVIRONMENT).lower() in ["production", "prod"]
+    
     # Server settings
-    HOST: str = "127.0.0.1"  # Use localhost for development
-    PORT: int = 8000
+    HOST: str = "0.0.0.0"  # Use 0.0.0.0 for deployment (Render, Docker, etc.)
+    PORT: int = 8000  # Default port, can be overridden by environment variable
+    
+    @property
+    def get_port(self) -> int:
+        """Get the port from environment variable or default"""
+        import os
+        return int(os.getenv("PORT", self.PORT))
+    
+    @property
+    def get_host(self) -> str:
+        """Get the appropriate host based on environment"""
+        # For local development, use localhost to avoid Windows binding issues
+        if not self.is_production and self.DEBUG:
+            return "127.0.0.1"
+        # For production/deployment, use 0.0.0.0
+        return self.HOST
     
     # Logging
     LOG_LEVEL: str = "INFO"
