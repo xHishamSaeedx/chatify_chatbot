@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
     
+    # Server settings
+    HOST: str = "127.0.0.1"  # Use localhost for development
+    PORT: int = 8000
+    
     # Logging
     LOG_LEVEL: str = "INFO"
     
