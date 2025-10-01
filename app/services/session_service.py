@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
 from app.services.firebase_service import firebase_service
 from app.services.openai_service import openai_service
+from app.services.analytics_service import analytics_service
 
 
 class SessionService:
@@ -32,10 +33,14 @@ class SessionService:
         session_id = str(uuid.uuid4())
         current_time = datetime.utcnow()
         
+        # Get and cache system prompt at session creation (only once!)
+        system_prompt = await self._get_system_prompt(template_id or "general-assistant")
+        
         session_data = {
             "session_id": session_id,
             "user_id": user_id,
             "template_id": template_id or "general-assistant",
+            "system_prompt": system_prompt,  # Cache the prompt in session
             "status": "active",
             "created_at": current_time.isoformat(),
             "last_activity": current_time.isoformat(),
@@ -51,6 +56,9 @@ class SessionService:
             firebase_service.set_data(f"/userSessions/{session_id}", session_data)
         except Exception as e:
             print(f"⚠️  Firebase not available, storing in memory only: {e}")
+        
+        # Track analytics
+        analytics_service.track_session_created(user_id, template_id or "general-assistant", session_id)
         
         return {
             "success": True,
@@ -84,8 +92,8 @@ class SessionService:
                 "error": "Session is no longer active"
             }
         
-        # Get system prompt based on template
-        system_prompt = await self._get_system_prompt(session["template_id"])
+        # Use cached system prompt from session (loaded once at creation)
+        system_prompt = session.get("system_prompt", "")
         
         # Add user message to conversation history
         session["conversation_history"].append({
@@ -121,6 +129,9 @@ class SessionService:
         # Update session
         session["last_activity"] = datetime.utcnow().isoformat()
         session["message_count"] += 1
+        
+        # Track analytics
+        analytics_service.track_message_sent(session["user_id"], session_id, len(user_message))
         
         # Keep only last 20 messages to prevent context overflow
         if len(session["conversation_history"]) > 20:
@@ -197,6 +208,19 @@ class SessionService:
         session = self.active_sessions[session_id]
         session["status"] = "ended"
         session["ended_at"] = datetime.utcnow().isoformat()
+        
+        # Calculate session duration
+        created_at = datetime.fromisoformat(session["created_at"])
+        ended_at = datetime.utcnow()
+        duration_seconds = (ended_at - created_at).total_seconds()
+        
+        # Track analytics
+        analytics_service.track_session_ended(
+            session["user_id"], 
+            session_id, 
+            session["message_count"],
+            duration_seconds
+        )
         
         # Update in Firebase (if available)
         try:
