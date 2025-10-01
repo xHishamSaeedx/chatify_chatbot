@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: chatify-chatbot
+    env: python
+    buildCommand: "./render-build.sh"
+    startCommand: "./render-start.sh"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: PORT
+        value: "10000"
