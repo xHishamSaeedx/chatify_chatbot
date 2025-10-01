@@ -23,6 +23,9 @@ firebase-admin==6.4.0
 # OpenAI
 openai==1.3.0
 
+# Background job scheduler
+apscheduler==3.10.4
+
 # Development tools
 black==23.11.0
 isort==5.12.0 
