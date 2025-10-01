@@ -88,8 +88,9 @@ app = create_application()
 
 
 @app.get("/")
+@app.head("/")
 async def root():
-    """Root endpoint"""
+    """Root endpoint - supports GET and HEAD methods for health checks"""
     return {
         "message": f"Welcome to {settings.PROJECT_NAME}",
         "version": settings.VERSION,
@@ -98,8 +99,9 @@ async def root():
 
 
 @app.get("/health")
+@app.head("/health")
 async def health_check():
-    """Health check endpoint"""
+    """Health check endpoint - supports GET and HEAD methods"""
     return {"status": "healthy", "service": settings.PROJECT_NAME}
 
 
