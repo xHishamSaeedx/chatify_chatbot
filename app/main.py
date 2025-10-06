@@ -3,6 +3,7 @@ Chatify Chatbot
 Main application entry point
 """
 
+import socketio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -17,10 +18,10 @@ from app.services.chatbot_fallback_service import chatbot_fallback_service
 from app.services.socket_service import socket_service
 
 
-def create_application() -> FastAPI:
+def create_fastapi_app() -> FastAPI:
     """Create and configure FastAPI application"""
     
-    app = FastAPI(
+    fastapi_app = FastAPI(
         title=settings.PROJECT_NAME,
         version=settings.VERSION,
         description=settings.DESCRIPTION,
@@ -29,7 +30,7 @@ def create_application() -> FastAPI:
 
     # Set up CORS
     if settings.BACKEND_CORS_ORIGINS:
-        app.add_middleware(
+        fastapi_app.add_middleware(
             CORSMiddleware,
             allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
             allow_credentials=True,
@@ -45,19 +46,16 @@ def create_application() -> FastAPI:
         print(f"Failed to initialize Firebase: {str(e)}")
     
     # Include API router
-    app.include_router(api_router, prefix=settings.API_V1_STR)
+    fastapi_app.include_router(api_router, prefix=settings.API_V1_STR)
     
     # Mount static files
-    app.mount("/static", StaticFiles(directory="app/static"), name="static")
-    
-    # Mount Socket.IO app
-    app.mount("/socket.io/", socket_service.app)
+    fastapi_app.mount("/static", StaticFiles(directory="app/static"), name="static")
     
     # Setup background cleanup scheduler
-    setup_background_jobs(app)
+    setup_background_jobs(fastapi_app)
     
     # Setup startup event for async initialization
-    @app.on_event("startup")
+    @fastapi_app.on_event("startup")
     async def startup_event():
         """Initialize services on startup"""
         try:
@@ -72,7 +70,7 @@ def create_application() -> FastAPI:
         except Exception as e:
             print(f"Failed to initialize Socket.IO: {str(e)}")
     
-    return app
+    return fastapi_app
 
 
 def setup_background_jobs(app: FastAPI):
@@ -126,11 +124,12 @@ def setup_background_jobs(app: FastAPI):
         print("[OK] Background jobs stopped")
 
 
-app = create_application()
+# Create FastAPI app
+fastapi_app = create_fastapi_app()
 
 
-@app.get("/")
-@app.head("/")
+@fastapi_app.get("/")
+@fastapi_app.head("/")
 async def root():
     """Root endpoint - supports GET and HEAD methods for health checks"""
     return {
@@ -140,11 +139,15 @@ async def root():
     }
 
 
-@app.get("/health")
-@app.head("/health")
+@fastapi_app.get("/health")
+@fastapi_app.head("/health")
 async def health_check():
     """Health check endpoint - supports GET and HEAD methods"""
     return {"status": "healthy", "service": settings.PROJECT_NAME}
+
+
+# Wrap FastAPI app with Socket.IO for WebSocket support
+app = socketio.ASGIApp(socket_service.sio, other_asgi_app=fastapi_app)
 
 
 if __name__ == "__main__":
