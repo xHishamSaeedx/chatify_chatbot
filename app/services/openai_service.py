@@ -258,15 +258,28 @@ class OpenAIService:
         }
         
         # Find the best matching response
-        response = "Hey! What's up?"
+        response = "That's cool! Tell me more"
         
         # Check for specific patterns first
-        if "female" in user_message or "woman" in user_message or "girl" in user_message:
+        if "personality" in user_message or "type" in user_message:
+            response = "I'm pretty chill and easy going. What about you?"
+        elif "think about" in user_message or "opinion" in user_message:
+            if "car" in user_message:
+                response = "Cars are cool! Do you have one?"
+            elif "music" in user_message:
+                response = "Music is great! What do you listen to?"
+            else:
+                response = "Hmm interesting question. What do you think?"
+        elif "female" in user_message or "woman" in user_message or "girl" in user_message:
             response = "Yeah, I am"
         elif "male" in user_message or "man" in user_message or "guy" in user_message:
             response = "Nah, I'm not"
         elif "are you" in user_message:
             response = "What do you think?"
+        elif "what do you" in user_message or "do you like" in user_message:
+            response = "I like a lot of things. What about you?"
+        elif "where" in user_message and ("from" in user_message or "live" in user_message):
+            response = "I'm from around here. You?"
         elif "same" in user_message or "samee" in user_message:
             response = "Nice"
         elif "great" in user_message:
@@ -279,16 +292,25 @@ class OpenAIService:
             response = "Right"
         elif "right" in user_message:
             response = "So what's up?"
-        elif "what's up" in user_message:
+        elif "what's up" in user_message or "whats up" in user_message:
             response = "Not much, you?"
         elif "not much" in user_message:
             response = "Same here"
         else:
             # Check other keywords
+            found = False
             for keyword, demo_response in demo_responses.items():
                 if keyword in user_message:
                     response = demo_response
+                    found = True
                     break
+            
+            # If no keyword match, give contextual responses
+            if not found:
+                if "?" in user_message:
+                    response = "Hmm good question. What do you think?"
+                else:
+                    response = "Oh really? That's interesting"
         
         # Add random shortform responses (45% chance)
         if random.random() < 0.45:
