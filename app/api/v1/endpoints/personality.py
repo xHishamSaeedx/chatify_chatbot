@@ -2,13 +2,58 @@
 Personality/Template management endpoints
 """
 
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, HTTPException, status
 from app.schemas.personality import PersonalityCreate, PersonalityUpdate, PersonalityResponse
 from app.services.firebase_service import firebase_service
 from datetime import datetime
+import json
+import os
 
 router = APIRouter()
+
+# In-memory storage fallback when Firebase is not available
+_in_memory_personalities: Dict[str, Dict[str, Any]] = {}
+
+def _get_personality_storage():
+    """Get personality storage - Firebase if available, otherwise in-memory"""
+    try:
+        # Try to access Firebase
+        firebase_service.get_data("/templates")
+        return "firebase"
+    except:
+        return "memory"
+
+def _get_personalities_data():
+    """Get personalities data from available storage"""
+    storage_type = _get_personality_storage()
+    
+    if storage_type == "firebase":
+        return firebase_service.get_data("/templates") or {}
+    else:
+        return _in_memory_personalities
+
+def _set_personality_data(personality_id: str, personality_data: Dict[str, Any]) -> bool:
+    """Set personality data in available storage"""
+    storage_type = _get_personality_storage()
+    
+    if storage_type == "firebase":
+        return firebase_service.set_data(f"/templates/{personality_id}", personality_data)
+    else:
+        _in_memory_personalities[personality_id] = personality_data
+        return True
+
+def _delete_personality_data(personality_id: str) -> bool:
+    """Delete personality data from available storage"""
+    storage_type = _get_personality_storage()
+    
+    if storage_type == "firebase":
+        return firebase_service.delete_data(f"/templates/{personality_id}")
+    else:
+        if personality_id in _in_memory_personalities:
+            del _in_memory_personalities[personality_id]
+            return True
+        return False
 
 
 @router.get("/")
@@ -19,8 +64,8 @@ async def get_all_personalities():
     Returns a list of all available AI personality templates.
     """
     try:
-        # Get templates from Firebase Realtime Database
-        templates_data = firebase_service.get_data("/templates")
+        # Get templates from available storage
+        templates_data = _get_personalities_data()
         
         if not templates_data:
             return []
@@ -71,7 +116,8 @@ async def get_personality(personality_id: str):
         personality_id: The unique identifier of the personality
     """
     try:
-        template_data = firebase_service.get_data(f"/templates/{personality_id}")
+        templates_data = _get_personalities_data()
+        template_data = templates_data.get(personality_id)
         
         if not template_data:
             raise HTTPException(
@@ -123,7 +169,7 @@ async def create_personality(personality: PersonalityCreate):
     """
     try:
         # Check if personality with same name already exists
-        existing_templates = firebase_service.get_data("/templates")
+        existing_templates = _get_personalities_data()
         if existing_templates:
             for template_id, template_data in existing_templates.items():
                 if isinstance(template_data, dict) and template_data.get("name") == personality.name:
@@ -135,19 +181,19 @@ async def create_personality(personality: PersonalityCreate):
         # Use the name as the ID (normalized)
         personality_id = personality.name.lower().replace(" ", "-")
         
-        # Prepare data for Firebase
+        # Prepare data for storage
         personality_data = personality.model_dump(by_alias=True)
         personality_data["createdAt"] = datetime.utcnow().isoformat()
         personality_data["updatedAt"] = datetime.utcnow().isoformat()
         personality_data["usageCount"] = 0
         
-        # Save to Firebase
-        success = firebase_service.set_data(f"/templates/{personality_id}", personality_data)
+        # Save to available storage
+        success = _set_personality_data(personality_id, personality_data)
         
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to create personality in Firebase"
+                detail="Failed to create personality"
             )
         
         return {
@@ -175,7 +221,8 @@ async def update_personality(personality_id: str, personality: PersonalityUpdate
     """
     try:
         # Check if personality exists
-        existing_data = firebase_service.get_data(f"/templates/{personality_id}")
+        templates_data = _get_personalities_data()
+        existing_data = templates_data.get(personality_id)
         
         if not existing_data:
             raise HTTPException(
@@ -190,13 +237,13 @@ async def update_personality(personality_id: str, personality: PersonalityUpdate
         # Merge with existing data
         updated_personality = {**existing_data, **update_data}
         
-        # Update in Firebase
-        success = firebase_service.set_data(f"/templates/{personality_id}", updated_personality)
+        # Update in available storage
+        success = _set_personality_data(personality_id, updated_personality)
         
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to update personality in Firebase"
+                detail="Failed to update personality"
             )
         
         return {
@@ -223,7 +270,8 @@ async def delete_personality(personality_id: str):
     """
     try:
         # Check if personality exists
-        existing_data = firebase_service.get_data(f"/templates/{personality_id}")
+        templates_data = _get_personalities_data()
+        existing_data = templates_data.get(personality_id)
         
         if not existing_data:
             raise HTTPException(
@@ -238,13 +286,13 @@ async def delete_personality(personality_id: str):
                 detail="Cannot delete default personality"
             )
         
-        # Delete from Firebase
-        success = firebase_service.delete_data(f"/templates/{personality_id}")
+        # Delete from available storage
+        success = _delete_personality_data(personality_id)
         
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to delete personality from Firebase"
+                detail="Failed to delete personality"
             )
         
         return {

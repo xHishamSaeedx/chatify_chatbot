@@ -22,9 +22,12 @@ class FirebaseService:
         if self._initialized:
             return
         
-        # Check if Firebase configuration is available
-        if not settings.FIREBASE_PROJECT_ID:
-            print("[WARN] Firebase configuration not found. Running in demo mode without Firebase.")
+        # Check if Firebase configuration is available and valid
+        if (not settings.FIREBASE_PROJECT_ID or 
+            settings.FIREBASE_PROJECT_ID == "your-firebase-project-id" or
+            not settings.FIREBASE_PRIVATE_KEY or
+            settings.FIREBASE_PRIVATE_KEY == "-----BEGIN PRIVATE KEY-----\\nYour private key here\\n-----END PRIVATE KEY-----\\n"):
+            print("[WARN] Firebase configuration not found or using default values. Running in demo mode without Firebase.")
             self._initialized = True
             return
         
@@ -59,8 +62,10 @@ class FirebaseService:
             print("Firebase initialized successfully")
             
         except Exception as e:
-            print(f"Error initializing Firebase: {str(e)}")
-            raise
+            print(f"[WARN] Error initializing Firebase: {str(e)}")
+            print("[WARN] Continuing in demo mode without Firebase.")
+            self._initialized = True
+            return
     
     @property
     def db(self):
@@ -80,20 +85,24 @@ class FirebaseService:
     def get_data(self, path: str) -> Optional[Dict[str, Any]]:
         """Get data from Firebase Realtime Database"""
         try:
+            if not self._initialized or not self._db:
+                return None
             ref = self.db.reference(path)
             return ref.get()
         except Exception as e:
-            print(f"Error getting data from {path}: {str(e)}")
+            print(f"[WARN] Error getting data from {path}: {str(e)}")
             return None
     
     def set_data(self, path: str, data: Dict[str, Any]) -> bool:
         """Set data in Firebase Realtime Database"""
         try:
+            if not self._initialized or not self._db:
+                return False
             ref = self.db.reference(path)
             ref.set(data)
             return True
         except Exception as e:
-            print(f"Error setting data to {path}: {str(e)}")
+            print(f"[WARN] Error setting data to {path}: {str(e)}")
             return False
     
     def update_data(self, path: str, data: Dict[str, Any]) -> bool:
@@ -119,11 +128,13 @@ class FirebaseService:
     def delete_data(self, path: str) -> bool:
         """Delete data from Firebase Realtime Database"""
         try:
+            if not self._initialized or not self._db:
+                return False
             ref = self.db.reference(path)
             ref.delete()
             return True
         except Exception as e:
-            print(f"Error deleting data at {path}: {str(e)}")
+            print(f"[WARN] Error deleting data at {path}: {str(e)}")
             return False
     
     def listen_to_changes(self, path: str, callback):
