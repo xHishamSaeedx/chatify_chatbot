@@ -55,7 +55,7 @@ class SessionService:
         try:
             firebase_service.set_data(f"/userSessions/{session_id}", session_data)
         except Exception as e:
-            print(f"⚠️  Firebase not available, storing in memory only: {e}")
+            print(f"[WARN]  Firebase not available, storing in memory only: {e}")
         
         # Track analytics
         analytics_service.track_session_created(user_id, template_id or "general-assistant", session_id)
@@ -157,7 +157,7 @@ class SessionService:
                 "timestamp": datetime.utcnow().isoformat()
             })
         except Exception as e:
-            print(f"⚠️  Firebase not available, storing in memory only: {e}")
+            print(f"[WARN]  Firebase not available, storing in memory only: {e}")
         
         return {
             "success": True,
@@ -226,7 +226,7 @@ class SessionService:
         try:
             firebase_service.set_data(f"/userSessions/{session_id}", session)
         except Exception as e:
-            print(f"⚠️  Firebase not available, storing in memory only: {e}")
+            print(f"[WARN]  Firebase not available, storing in memory only: {e}")
         
         # Remove from active sessions
         del self.active_sessions[session_id]
@@ -264,7 +264,7 @@ class SessionService:
         try:
             firebase_cleaned = await self._cleanup_firebase_sessions()
         except Exception as e:
-            print(f"⚠️  Error cleaning up Firebase sessions: {e}")
+            print(f"[WARN]  Error cleaning up Firebase sessions: {e}")
         
         return {
             "success": True,
@@ -287,12 +287,12 @@ class SessionService:
             # Delete conversation history from Firebase
             try:
                 firebase_service.delete_data(f"/conversations/{session_id}")
-                print(f"✅ Cleaned up Firebase conversation history for session: {session_id}")
+                print(f"[OK] Cleaned up Firebase conversation history for session: {session_id}")
             except Exception as e:
-                print(f"⚠️  Failed to clean up Firebase conversation history for session {session_id}: {e}")
+                print(f"[WARN]  Failed to clean up Firebase conversation history for session {session_id}: {e}")
                 
         except Exception as e:
-            print(f"⚠️  Error in Firebase cleanup task for session {session_id}: {e}")
+            print(f"[WARN]  Error in Firebase cleanup task for session {session_id}: {e}")
     
     async def _cleanup_firebase_sessions(self) -> int:
         """
@@ -325,7 +325,7 @@ class SessionService:
                             # Also delete conversation history if it exists
                             firebase_service.delete_data(f"/conversations/{session_id}")
                             cleaned_count += 1
-                            print(f"🗑️  Cleaned expired Firebase session: {session_id}")
+                            print(f"[CLEAN]  Cleaned expired Firebase session: {session_id}")
                     
                     # Also clean up sessions marked as "ended"
                     elif session_data.get("status") == "ended":
@@ -336,19 +336,19 @@ class SessionService:
                                 firebase_service.delete_data(f"/userSessions/{session_id}")
                                 firebase_service.delete_data(f"/conversations/{session_id}")
                                 cleaned_count += 1
-                                print(f"🗑️  Cleaned ended Firebase session: {session_id}")
+                                print(f"[CLEAN]  Cleaned ended Firebase session: {session_id}")
                 
                 except Exception as e:
-                    print(f"⚠️  Error cleaning session {session_id}: {e}")
+                    print(f"[WARN]  Error cleaning session {session_id}: {e}")
                     continue
             
             if cleaned_count > 0:
-                print(f"✅ Cleaned {cleaned_count} expired sessions from Firebase")
+                print(f"[OK] Cleaned {cleaned_count} expired sessions from Firebase")
             
             return cleaned_count
             
         except Exception as e:
-            print(f"⚠️  Error in Firebase session cleanup: {e}")
+            print(f"[WARN]  Error in Firebase session cleanup: {e}")
             return 0
     
     async def _simulate_typing_delay(self, message: str):
@@ -376,12 +376,12 @@ class SessionService:
             # Cap the delay at 8 seconds maximum
             total_delay = min(total_delay, 8.0)
             
-            print(f"⏱️  Typing delay: {total_delay:.1f}s (base: {base_delay:.1f}s, words: {word_delay:.1f}s, emojis: {emoji_delay:.1f}s)")
+            print(f"[TIME]  Typing delay: {total_delay:.1f}s (base: {base_delay:.1f}s, words: {word_delay:.1f}s, emojis: {emoji_delay:.1f}s)")
             
             await asyncio.sleep(total_delay)
             
         except Exception as e:
-            print(f"⚠️  Error in typing delay simulation: {e}")
+            print(f"[WARN]  Error in typing delay simulation: {e}")
             # Fallback to 1 second delay if there's an error
             await asyncio.sleep(1.0)
     
@@ -401,9 +401,9 @@ class SessionService:
             rules_data = firebase_service.get_data("/settings/universalRules")
             if rules_data and rules_data.get("enabled", True):
                 universal_rules = rules_data.get("rules", "")
-                print(f"📋 Loaded universal rules (version: {rules_data.get('version', 'unknown')})")
+                print(f"[RULES] Loaded universal rules (version: {rules_data.get('version', 'unknown')})")
         except Exception as e:
-            print(f"⚠️  Could not load universal rules: {e}")
+            print(f"[WARN]  Could not load universal rules: {e}")
         
         # Get personality-specific prompt
         personality_prompt = ""
@@ -412,32 +412,32 @@ class SessionService:
             if template_data:
                 # Check for new format (personalityPrompt) or old format (systemPrompt)
                 personality_prompt = template_data.get("personalityPrompt") or template_data.get("systemPrompt", "")
-                print(f"📝 Using Firebase template: {template_id}")
+                print(f"[PROMPT] Using Firebase template: {template_id}")
         except Exception as e:
-            print(f"⚠️  Firebase template not found for {template_id}: {e}")
+            print(f"[WARN]  Firebase template not found for {template_id}: {e}")
         
         # If no personality prompt found, use fallback
         if not personality_prompt:
-            print(f"⚠️  Falling back to local general prompt for {template_id}")
+            print(f"[WARN]  Falling back to local general prompt for {template_id}")
             personality_prompt = self._get_fallback_personality_prompt()
         
         # Combine universal rules with personality prompt
         if universal_rules and personality_prompt:
             combined_prompt = f"{universal_rules}\n\n{personality_prompt}"
-            print(f"✅ Combined prompt created: Universal Rules ({len(universal_rules)} chars) + Personality ({len(personality_prompt)} chars) = {len(combined_prompt)} chars total")
+            print(f"[OK] Combined prompt created: Universal Rules ({len(universal_rules)} chars) + Personality ({len(personality_prompt)} chars) = {len(combined_prompt)} chars total")
         elif universal_rules:
             combined_prompt = universal_rules
-            print(f"⚠️  Using only universal rules (no personality prompt found)")
+            print(f"[WARN]  Using only universal rules (no personality prompt found)")
         elif personality_prompt:
             combined_prompt = personality_prompt
-            print(f"⚠️  Using only personality prompt (no universal rules found)")
+            print(f"[WARN]  Using only personality prompt (no universal rules found)")
         else:
             # Ultimate fallback
             combined_prompt = self._get_general_prompt()
-            print(f"⚠️  Using fallback general prompt")
+            print(f"[WARN]  Using fallback general prompt")
         
         # Debug: Print the first 200 characters of the combined prompt
-        print(f"📄 Combined System Prompt Preview:\n{combined_prompt[:200]}...")
+        print(f"[PROMPT] Combined System Prompt Preview:\n{combined_prompt[:200]}...")
         
         return combined_prompt
     

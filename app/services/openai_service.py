@@ -12,18 +12,18 @@ class OpenAIService:
     
     def __init__(self):
         """Initialize OpenAI client"""
-        print(f"🔑 OpenAI API Key loaded: {settings.OPENAI_API_KEY[:10]}..." if settings.OPENAI_API_KEY else "🔑 No OpenAI API Key found")
+        print(f"[KEY] OpenAI API Key loaded: {settings.OPENAI_API_KEY[:10]}..." if settings.OPENAI_API_KEY else "[KEY] No OpenAI API Key found")
         
         if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY == "your-openai-api-key":
             self.client = None
             self.model = "gpt-4o-mini"  # Better model for natural conversation
             self.demo_mode = True
-            print("⚠️  OpenAI API key not found. Running in demo mode with mock responses.")
+            print("[WARN] OpenAI API key not found. Running in demo mode with mock responses.")
         else:
             self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
             self.model = "gpt-4o-mini"  # Better model for natural conversation
             self.demo_mode = False
-            print("✅ OpenAI API key found. Using real OpenAI API.")
+            print("[OK] OpenAI API key found. Using real OpenAI API.")
     
     async def chat_completion(
         self,
@@ -49,10 +49,10 @@ class OpenAIService:
         try:
             if not self.client or self.demo_mode:
                 # Return demo response
-                print("🔄 Using demo mode response")
+                print("[DEMO] Using demo mode response")
                 return self._get_demo_response(messages)
             
-            print("🚀 Using real OpenAI API")
+            print("[API] Using real OpenAI API")
             response = self.client.chat.completions.create(
                 model=model or self.model,
                 messages=messages,
@@ -120,14 +120,14 @@ class OpenAIService:
         
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
-            print(f"📝 System prompt added to OpenAI messages (length: {len(system_prompt)} chars)")
-            print(f"📝 System prompt preview: {system_prompt[:150]}...")
+            print(f"[PROMPT] System prompt added to OpenAI messages (length: {len(system_prompt)} chars)")
+            print(f"[PROMPT] System prompt preview: {system_prompt[:150]}...")
         else:
-            print(f"⚠️  No system prompt provided - using default OpenAI behavior")
+            print(f"[WARN] No system prompt provided - using default OpenAI behavior")
         
         # Add conversation history (limit to last 10 messages for context)
         messages.extend(conversation_history[-10:])
-        print(f"💬 Conversation history: {len(conversation_history)} messages")
+        print(f"[CHAT] Conversation history: {len(conversation_history)} messages")
         
         # Add current user message
         messages.append({"role": "user", "content": user_message})
@@ -161,8 +161,8 @@ class OpenAIService:
                 conversation_history.append(msg["content"].lower())
         
         # Debug: Print conversation history
-        print(f"🔍 Conversation history: {conversation_history}")
-        print(f"🔍 User message: {user_message}")
+        print(f"[DEBUG] Conversation history: {conversation_history}")
+        print(f"[DEBUG] User message: {user_message}")
         
         # Get the last user message
         user_message = ""
@@ -847,8 +847,8 @@ class OpenAIService:
             delay = 2.0
         
         # Debug: Print final response
-        print(f"🔍 Final response: {response}")
-        print(f"🔍 Is repeating? {response.lower() in conversation_history}")
+        print(f"[DEBUG] Final response: {response}")
+        print(f"[DEBUG] Is repeating? {response.lower() in conversation_history}")
         
         # Simulate typing delay
         time.sleep(delay)

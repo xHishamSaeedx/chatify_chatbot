@@ -12,6 +12,9 @@ from app.core.config import settings
 from app.api.v1.api import api_router
 from app.services.firebase_service import firebase_service
 from app.services.session_service import session_service
+from app.services.redis_service import redis_service
+from app.services.chatbot_fallback_service import chatbot_fallback_service
+from app.services.socket_service import socket_service
 
 
 def create_application() -> FastAPI:
@@ -47,8 +50,27 @@ def create_application() -> FastAPI:
     # Mount static files
     app.mount("/static", StaticFiles(directory="app/static"), name="static")
     
+    # Mount Socket.IO app
+    app.mount("/socket.io/", socket_service.app)
+    
     # Setup background cleanup scheduler
     setup_background_jobs(app)
+    
+    # Setup startup event for async initialization
+    @app.on_event("startup")
+    async def startup_event():
+        """Initialize services on startup"""
+        try:
+            await redis_service.initialize()
+            print("Redis service initialized successfully")
+        except Exception as e:
+            print(f"Failed to initialize Redis: {str(e)}")
+        
+        try:
+            await socket_service.initialize()
+            print("Socket.IO service initialized successfully")
+        except Exception as e:
+            print(f"Failed to initialize Socket.IO: {str(e)}")
     
     return app
 
@@ -60,7 +82,7 @@ def setup_background_jobs(app: FastAPI):
     @app.on_event("startup")
     async def start_scheduler():
         """Start background cleanup job when application starts"""
-        print("🔧 Setting up background cleanup jobs...")
+        print("[SETUP] Setting up background cleanup jobs...")
         
         # Schedule session cleanup every 10 minutes
         scheduler.add_job(
@@ -72,16 +94,36 @@ def setup_background_jobs(app: FastAPI):
             replace_existing=True
         )
         
+        # Schedule Redis cleanup every 5 minutes
+        scheduler.add_job(
+            redis_service.cleanup_expired_sessions,
+            'interval',
+            minutes=5,
+            id='cleanup_redis_sessions',
+            name='Cleanup expired Redis sessions',
+            replace_existing=True
+        )
+        
+        # Schedule AI fallback cleanup every 15 minutes
+        scheduler.add_job(
+            chatbot_fallback_service.cleanup_expired_sessions,
+            'interval',
+            minutes=15,
+            id='cleanup_ai_sessions',
+            name='Cleanup expired AI sessions',
+            replace_existing=True
+        )
+        
         scheduler.start()
-        print("✅ Background cleanup job started - runs every 10 minutes")
-        print(f"   📊 Current active sessions: {session_service.get_active_sessions_count()}")
+        print("[OK] Background cleanup job started - runs every 10 minutes")
+        print(f"   [INFO] Current active sessions: {session_service.get_active_sessions_count()}")
     
     @app.on_event("shutdown")
     async def shutdown_scheduler():
         """Shutdown scheduler gracefully when application stops"""
-        print("🔄 Shutting down background jobs...")
+        print("[SHUTDOWN] Shutting down background jobs...")
         scheduler.shutdown(wait=False)
-        print("✅ Background jobs stopped")
+        print("[OK] Background jobs stopped")
 
 
 app = create_application()
