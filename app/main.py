@@ -3,6 +3,7 @@ Chatify Chatbot
 Main application entry point
 """
 
+import socketio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -12,12 +13,15 @@ from app.core.config import settings
 from app.api.v1.api import api_router
 from app.services.firebase_service import firebase_service
 from app.services.session_service import session_service
+from app.services.redis_service import redis_service
+from app.services.chatbot_fallback_service import chatbot_fallback_service
+from app.services.socket_service import socket_service
 
 
-def create_application() -> FastAPI:
+def create_fastapi_app() -> FastAPI:
     """Create and configure FastAPI application"""
     
-    app = FastAPI(
+    fastapi_app = FastAPI(
         title=settings.PROJECT_NAME,
         version=settings.VERSION,
         description=settings.DESCRIPTION,
@@ -26,7 +30,7 @@ def create_application() -> FastAPI:
 
     # Set up CORS
     if settings.BACKEND_CORS_ORIGINS:
-        app.add_middleware(
+        fastapi_app.add_middleware(
             CORSMiddleware,
             allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
             allow_credentials=True,
@@ -42,15 +46,31 @@ def create_application() -> FastAPI:
         print(f"Failed to initialize Firebase: {str(e)}")
     
     # Include API router
-    app.include_router(api_router, prefix=settings.API_V1_STR)
+    fastapi_app.include_router(api_router, prefix=settings.API_V1_STR)
     
     # Mount static files
-    app.mount("/static", StaticFiles(directory="app/static"), name="static")
+    fastapi_app.mount("/static", StaticFiles(directory="app/static"), name="static")
     
     # Setup background cleanup scheduler
-    setup_background_jobs(app)
+    setup_background_jobs(fastapi_app)
     
-    return app
+    # Setup startup event for async initialization
+    @fastapi_app.on_event("startup")
+    async def startup_event():
+        """Initialize services on startup"""
+        try:
+            await redis_service.initialize()
+            print("Redis service initialized successfully")
+        except Exception as e:
+            print(f"Failed to initialize Redis: {str(e)}")
+        
+        try:
+            await socket_service.initialize()
+            print("Socket.IO service initialized successfully")
+        except Exception as e:
+            print(f"Failed to initialize Socket.IO: {str(e)}")
+    
+    return fastapi_app
 
 
 def setup_background_jobs(app: FastAPI):
@@ -60,7 +80,7 @@ def setup_background_jobs(app: FastAPI):
     @app.on_event("startup")
     async def start_scheduler():
         """Start background cleanup job when application starts"""
-        print("🔧 Setting up background cleanup jobs...")
+        print("[SETUP] Setting up background cleanup jobs...")
         
         # Schedule session cleanup every 10 minutes
         scheduler.add_job(
@@ -72,23 +92,44 @@ def setup_background_jobs(app: FastAPI):
             replace_existing=True
         )
         
+        # Schedule Redis cleanup every 5 minutes
+        scheduler.add_job(
+            redis_service.cleanup_expired_sessions,
+            'interval',
+            minutes=5,
+            id='cleanup_redis_sessions',
+            name='Cleanup expired Redis sessions',
+            replace_existing=True
+        )
+        
+        # Schedule AI fallback cleanup every 15 minutes
+        scheduler.add_job(
+            chatbot_fallback_service.cleanup_expired_sessions,
+            'interval',
+            minutes=15,
+            id='cleanup_ai_sessions',
+            name='Cleanup expired AI sessions',
+            replace_existing=True
+        )
+        
         scheduler.start()
-        print("✅ Background cleanup job started - runs every 10 minutes")
-        print(f"   📊 Current active sessions: {session_service.get_active_sessions_count()}")
+        print("[OK] Background cleanup job started - runs every 10 minutes")
+        print(f"   [INFO] Current active sessions: {session_service.get_active_sessions_count()}")
     
     @app.on_event("shutdown")
     async def shutdown_scheduler():
         """Shutdown scheduler gracefully when application stops"""
-        print("🔄 Shutting down background jobs...")
+        print("[SHUTDOWN] Shutting down background jobs...")
         scheduler.shutdown(wait=False)
-        print("✅ Background jobs stopped")
+        print("[OK] Background jobs stopped")
 
 
-app = create_application()
+# Create FastAPI app
+fastapi_app = create_fastapi_app()
 
 
-@app.get("/")
-@app.head("/")
+@fastapi_app.get("/")
+@fastapi_app.head("/")
 async def root():
     """Root endpoint - supports GET and HEAD methods for health checks"""
     return {
@@ -98,11 +139,15 @@ async def root():
     }
 
 
-@app.get("/health")
-@app.head("/health")
+@fastapi_app.get("/health")
+@fastapi_app.head("/health")
 async def health_check():
     """Health check endpoint - supports GET and HEAD methods"""
     return {"status": "healthy", "service": settings.PROJECT_NAME}
+
+
+# Wrap FastAPI app with Socket.IO for WebSocket support
+app = socketio.ASGIApp(socket_service.sio, other_asgi_app=fastapi_app)
 
 
 if __name__ == "__main__":

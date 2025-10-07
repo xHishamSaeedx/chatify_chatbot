@@ -22,6 +22,9 @@ openai==1.68.2
 # Background job scheduler
 apscheduler==3.10.4
 
+# Socket.IO support
+python-socketio==5.10.0
+
 # Development tools (not installed)
 # black==23.11.0
 # isort==5.12.0 

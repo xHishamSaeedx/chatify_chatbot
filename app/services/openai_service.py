@@ -12,18 +12,18 @@ class OpenAIService:
     
     def __init__(self):
         """Initialize OpenAI client"""
-        print(f"🔑 OpenAI API Key loaded: {settings.OPENAI_API_KEY[:10]}..." if settings.OPENAI_API_KEY else "🔑 No OpenAI API Key found")
+        print(f"[KEY] OpenAI API Key loaded: {settings.OPENAI_API_KEY[:10]}..." if settings.OPENAI_API_KEY else "[KEY] No OpenAI API Key found")
         
         if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY == "your-openai-api-key":
             self.client = None
             self.model = "gpt-4o-mini"  # Better model for natural conversation
             self.demo_mode = True
-            print("⚠️  OpenAI API key not found. Running in demo mode with mock responses.")
+            print("[WARN] OpenAI API key not found. Running in demo mode with mock responses.")
         else:
             self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
             self.model = "gpt-4o-mini"  # Better model for natural conversation
             self.demo_mode = False
-            print("✅ OpenAI API key found. Using real OpenAI API.")
+            print("[OK] OpenAI API key found. Using real OpenAI API.")
     
     async def chat_completion(
         self,
@@ -49,10 +49,10 @@ class OpenAIService:
         try:
             if not self.client or self.demo_mode:
                 # Return demo response
-                print("🔄 Using demo mode response")
+                print("[DEMO] Using demo mode response")
                 return self._get_demo_response(messages)
             
-            print("🚀 Using real OpenAI API")
+            print("[API] Using real OpenAI API")
             response = self.client.chat.completions.create(
                 model=model or self.model,
                 messages=messages,
@@ -120,14 +120,14 @@ class OpenAIService:
         
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
-            print(f"📝 System prompt added to OpenAI messages (length: {len(system_prompt)} chars)")
-            print(f"📝 System prompt preview: {system_prompt[:150]}...")
+            print(f"[PROMPT] System prompt added to OpenAI messages (length: {len(system_prompt)} chars)")
+            print(f"[PROMPT] System prompt preview: {system_prompt[:150]}...")
         else:
-            print(f"⚠️  No system prompt provided - using default OpenAI behavior")
+            print(f"[WARN] No system prompt provided - using default OpenAI behavior")
         
         # Add conversation history (limit to last 10 messages for context)
         messages.extend(conversation_history[-10:])
-        print(f"💬 Conversation history: {len(conversation_history)} messages")
+        print(f"[CHAT] Conversation history: {len(conversation_history)} messages")
         
         # Add current user message
         messages.append({"role": "user", "content": user_message})
@@ -161,8 +161,8 @@ class OpenAIService:
                 conversation_history.append(msg["content"].lower())
         
         # Debug: Print conversation history
-        print(f"🔍 Conversation history: {conversation_history}")
-        print(f"🔍 User message: {user_message}")
+        print(f"[DEBUG] Conversation history: {conversation_history}")
+        print(f"[DEBUG] User message: {user_message}")
         
         # Get the last user message
         user_message = ""
@@ -258,15 +258,28 @@ class OpenAIService:
         }
         
         # Find the best matching response
-        response = "Hey! What's up?"
+        response = "That's cool! Tell me more"
         
         # Check for specific patterns first
-        if "female" in user_message or "woman" in user_message or "girl" in user_message:
+        if "personality" in user_message or "type" in user_message:
+            response = "I'm pretty chill and easy going. What about you?"
+        elif "think about" in user_message or "opinion" in user_message:
+            if "car" in user_message:
+                response = "Cars are cool! Do you have one?"
+            elif "music" in user_message:
+                response = "Music is great! What do you listen to?"
+            else:
+                response = "Hmm interesting question. What do you think?"
+        elif "female" in user_message or "woman" in user_message or "girl" in user_message:
             response = "Yeah, I am"
         elif "male" in user_message or "man" in user_message or "guy" in user_message:
             response = "Nah, I'm not"
         elif "are you" in user_message:
             response = "What do you think?"
+        elif "what do you" in user_message or "do you like" in user_message:
+            response = "I like a lot of things. What about you?"
+        elif "where" in user_message and ("from" in user_message or "live" in user_message):
+            response = "I'm from around here. You?"
         elif "same" in user_message or "samee" in user_message:
             response = "Nice"
         elif "great" in user_message:
@@ -279,16 +292,25 @@ class OpenAIService:
             response = "Right"
         elif "right" in user_message:
             response = "So what's up?"
-        elif "what's up" in user_message:
+        elif "what's up" in user_message or "whats up" in user_message:
             response = "Not much, you?"
         elif "not much" in user_message:
             response = "Same here"
         else:
             # Check other keywords
+            found = False
             for keyword, demo_response in demo_responses.items():
                 if keyword in user_message:
                     response = demo_response
+                    found = True
                     break
+            
+            # If no keyword match, give contextual responses
+            if not found:
+                if "?" in user_message:
+                    response = "Hmm good question. What do you think?"
+                else:
+                    response = "Oh really? That's interesting"
         
         # Add random shortform responses (45% chance)
         if random.random() < 0.45:
@@ -847,8 +869,8 @@ class OpenAIService:
             delay = 2.0
         
         # Debug: Print final response
-        print(f"🔍 Final response: {response}")
-        print(f"🔍 Is repeating? {response.lower() in conversation_history}")
+        print(f"[DEBUG] Final response: {response}")
+        print(f"[DEBUG] Is repeating? {response.lower() in conversation_history}")
         
         # Simulate typing delay
         time.sleep(delay)

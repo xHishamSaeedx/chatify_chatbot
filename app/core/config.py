@@ -71,7 +71,7 @@ class Settings(BaseSettings):
     @validator("BACKEND_CORS_ORIGINS", pre=True)
     def assemble_cors_origins(cls, v):
         if v is None:
-            return ["http://localhost:3000", "http://localhost:8080", "http://localhost:8000"]
+            return ["http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:8080", "http://localhost:8000"]
         if isinstance(v, str):
             if v.startswith("["):
                 import json

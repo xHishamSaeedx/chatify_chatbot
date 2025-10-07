@@ -22,6 +22,17 @@ class AnalyticsService:
                 "sessions": 0,
                 "messages": 0,
                 "users": set()
+            }),
+            # AI Chatbot Fallback Analytics
+            "ai_fallback_triggered": 0,
+            "ai_sessions_created": 0,
+            "ai_sessions_ended": 0,
+            "ai_messages_sent": 0,
+            "ai_sessions_by_personality": defaultdict(int),
+            "ai_daily_stats": defaultdict(lambda: {
+                "sessions": 0,
+                "messages": 0,
+                "users": set()
             })
         }
     
@@ -46,10 +57,10 @@ class AnalyticsService:
             
             firebase_service.push_data("/analytics/events", event_data)
             
-            print(f"📊 Analytics: Session created - User: {user_id}, Template: {template_id}")
+            print(f"[STATS] Analytics: Session created - User: {user_id}, Template: {template_id}")
             
         except Exception as e:
-            print(f"⚠️ Analytics tracking error: {e}")
+            print(f"[WARN] Analytics tracking error: {e}")
     
     def track_message_sent(self, user_id: str, session_id: str, message_length: int):
         """Track when a message is sent"""
@@ -60,10 +71,10 @@ class AnalyticsService:
             today = datetime.utcnow().date().isoformat()
             self._in_memory_stats["daily_stats"][today]["messages"] += 1
             
-            print(f"📊 Analytics: Message sent - User: {user_id}, Length: {message_length}")
+            print(f"[STATS] Analytics: Message sent - User: {user_id}, Length: {message_length}")
             
         except Exception as e:
-            print(f"⚠️ Analytics tracking error: {e}")
+            print(f"[WARN] Analytics tracking error: {e}")
     
     def track_session_ended(self, user_id: str, session_id: str, message_count: int, duration_seconds: float):
         """Track when a session ends"""
@@ -82,10 +93,10 @@ class AnalyticsService:
             
             firebase_service.push_data("/analytics/events", event_data)
             
-            print(f"📊 Analytics: Session ended - User: {user_id}, Messages: {message_count}, Duration: {duration_seconds:.1f}s")
+            print(f"[STATS] Analytics: Session ended - User: {user_id}, Messages: {message_count}, Duration: {duration_seconds:.1f}s")
             
         except Exception as e:
-            print(f"⚠️ Analytics tracking error: {e}")
+            print(f"[WARN] Analytics tracking error: {e}")
     
     def get_overview_stats(self) -> Dict[str, Any]:
         """Get overview analytics statistics"""
@@ -185,7 +196,7 @@ class AnalyticsService:
             }
             
         except Exception as e:
-            print(f"⚠️ Error getting Firebase stats: {e}")
+            print(f"[WARN] Error getting Firebase stats: {e}")
             return {
                 "total_events": 0,
                 "session_created_count": 0,
@@ -200,8 +211,136 @@ class AnalyticsService:
             "overview": self.get_overview_stats(),
             "personality_stats": self.get_personality_stats(),
             "daily_stats": self.get_daily_stats(7),
-            "top_users": self.get_user_activity(10)
+            "top_users": self.get_user_activity(10),
+            "ai_analytics": self.get_ai_analytics()
         }
+    
+    # AI Chatbot Fallback Analytics Methods
+    
+    def track_ai_fallback_triggered(self, user_id: str, wait_time: float, personality: str):
+        """Track when AI fallback is triggered"""
+        try:
+            self._in_memory_stats["ai_fallback_triggered"] += 1
+            
+            today = datetime.utcnow().date().isoformat()
+            self._in_memory_stats["ai_daily_stats"][today]["users"].add(user_id)
+            
+            # Store in Firebase for persistence
+            event_data = {
+                "event_type": "ai_fallback_triggered",
+                "user_id": user_id,
+                "wait_time": wait_time,
+                "personality": personality,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+            firebase_service.push_data("/analytics/ai_events", event_data)
+            
+            print(f"[AI_STATS] AI Fallback triggered - User: {user_id}, Wait: {wait_time}s, Personality: {personality}")
+            
+        except Exception as e:
+            print(f"[WARN] Error tracking AI fallback triggered: {e}")
+    
+    def track_ai_chatbot_fallback(self, user_id: str, personality: str, wait_time: float, session_id: str):
+        """Track when AI chatbot fallback session is created"""
+        try:
+            self._in_memory_stats["ai_sessions_created"] += 1
+            self._in_memory_stats["ai_sessions_by_personality"][personality] += 1
+            
+            today = datetime.utcnow().date().isoformat()
+            self._in_memory_stats["ai_daily_stats"][today]["sessions"] += 1
+            self._in_memory_stats["ai_daily_stats"][today]["users"].add(user_id)
+            
+            # Store in Firebase for persistence
+            event_data = {
+                "event_type": "ai_chatbot_session_created",
+                "user_id": user_id,
+                "session_id": session_id,
+                "personality": personality,
+                "wait_time": wait_time,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+            firebase_service.push_data("/analytics/ai_events", event_data)
+            
+            print(f"[AI_STATS] AI Chatbot session created - User: {user_id}, Personality: {personality}, Session: {session_id}")
+            
+        except Exception as e:
+            print(f"[WARN] Error tracking AI chatbot fallback: {e}")
+    
+    def track_ai_chatbot_session_ended(self, user_id: str, session_id: str, personality: str, duration_seconds: float):
+        """Track when AI chatbot session ends"""
+        try:
+            self._in_memory_stats["ai_sessions_ended"] += 1
+            
+            today = datetime.utcnow().date().isoformat()
+            self._in_memory_stats["ai_daily_stats"][today]["users"].add(user_id)
+            
+            # Store in Firebase for persistence
+            event_data = {
+                "event_type": "ai_chatbot_session_ended",
+                "user_id": user_id,
+                "session_id": session_id,
+                "personality": personality,
+                "duration_seconds": duration_seconds,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+            firebase_service.push_data("/analytics/ai_events", event_data)
+            
+            print(f"[AI_STATS] AI Chatbot session ended - User: {user_id}, Duration: {duration_seconds:.1f}s, Personality: {personality}")
+            
+        except Exception as e:
+            print(f"[WARN] Error tracking AI chatbot session ended: {e}")
+    
+    def track_ai_chatbot_message(self, user_id: str, session_id: str, message_length: int, personality: str):
+        """Track AI chatbot message sent"""
+        try:
+            self._in_memory_stats["ai_messages_sent"] += 1
+            self._in_memory_stats["messages_by_user"][user_id] += 1
+            
+            today = datetime.utcnow().date().isoformat()
+            self._in_memory_stats["ai_daily_stats"][today]["messages"] += 1
+            self._in_memory_stats["ai_daily_stats"][today]["users"].add(user_id)
+            
+            # Store in Firebase for persistence
+            event_data = {
+                "event_type": "ai_chatbot_message",
+                "user_id": user_id,
+                "session_id": session_id,
+                "message_length": message_length,
+                "personality": personality,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+            firebase_service.push_data("/analytics/ai_events", event_data)
+            
+            print(f"[AI_STATS] AI Chatbot message - User: {user_id}, Length: {message_length}, Personality: {personality}")
+            
+        except Exception as e:
+            print(f"[WARN] Error tracking AI chatbot message: {e}")
+    
+    def get_ai_analytics(self) -> Dict[str, Any]:
+        """Get AI chatbot analytics"""
+        try:
+            return {
+                "ai_fallback_triggered": self._in_memory_stats["ai_fallback_triggered"],
+                "ai_sessions_created": self._in_memory_stats["ai_sessions_created"],
+                "ai_sessions_ended": self._in_memory_stats["ai_sessions_ended"],
+                "ai_messages_sent": self._in_memory_stats["ai_messages_sent"],
+                "ai_sessions_by_personality": dict(self._in_memory_stats["ai_sessions_by_personality"]),
+                "ai_daily_stats": {
+                    date: {
+                        "sessions": stats["sessions"],
+                        "messages": stats["messages"],
+                        "users": len(stats["users"])
+                    }
+                    for date, stats in self._in_memory_stats["ai_daily_stats"].items()
+                }
+            }
+        except Exception as e:
+            print(f"[WARN] Error getting AI analytics: {e}")
+            return {"error": str(e)}
 
 
 # Global analytics service instance
