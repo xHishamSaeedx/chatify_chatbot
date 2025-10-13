@@ -15,15 +15,14 @@ class OpenAIService:
         print(f"[KEY] OpenAI API Key loaded: {settings.OPENAI_API_KEY[:10]}..." if settings.OPENAI_API_KEY else "[KEY] No OpenAI API Key found")
         
         if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY == "your-openai-api-key":
-            self.client = None
-            self.model = "gpt-4o-mini"  # Better model for natural conversation
-            self.demo_mode = True
-            print("[WARN] OpenAI API key not found. Running in demo mode with mock responses.")
-        else:
-            self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
-            self.model = "gpt-4o-mini"  # Better model for natural conversation
-            self.demo_mode = False
-            print("[OK] OpenAI API key found. Using real OpenAI API.")
+            raise ValueError(
+                "OpenAI API key is not configured. Please set OPENAI_API_KEY environment variable."
+            )
+        
+        self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        self.model = "gpt-4o-mini"  # Better model for natural conversation
+        self.demo_mode = False
+        print("[OK] OpenAI API key found. Using real OpenAI API.")
     
     async def chat_completion(
         self,
@@ -31,6 +30,7 @@ class OpenAIService:
         model: Optional[str] = None,
         temperature: float = 0.9,  # Higher temperature for more natural, varied responses
         max_tokens: Optional[int] = 50,  # Limit tokens for short, natural responses
+        enthusiasm_level: int = 3,
         **kwargs
     ) -> Dict[str, Any]:
         """
@@ -41,6 +41,7 @@ class OpenAIService:
             model: OpenAI model to use (defaults to gpt-3.5-turbo)
             temperature: Sampling temperature (0.0 to 2.0)
             max_tokens: Maximum tokens to generate
+            enthusiasm_level: Current enthusiasm level (1-5) for demo mode
             **kwargs: Additional parameters for the API call
             
         Returns:
@@ -50,7 +51,7 @@ class OpenAIService:
             if not self.client or self.demo_mode:
                 # Return demo response
                 print("[DEMO] Using demo mode response")
-                return self._get_demo_response(messages)
+                return self._get_demo_response(messages, enthusiasm_level)
             
             print("[API] Using real OpenAI API")
             response = self.client.chat.completions.create(
@@ -103,7 +104,8 @@ class OpenAIService:
         self,
         conversation_history: List[Dict[str, str]],
         user_message: str,
-        system_prompt: Optional[str] = None
+        system_prompt: Optional[str] = None,
+        enthusiasm_level: int = 3
     ) -> Dict[str, Any]:
         """
         Chat with conversation history context
@@ -112,6 +114,7 @@ class OpenAIService:
             conversation_history: Previous messages in the conversation
             user_message: The new user message
             system_prompt: Optional system prompt to set context
+            enthusiasm_level: Current enthusiasm level (1-5) that affects response style
             
         Returns:
             Dictionary containing the chat response
@@ -119,9 +122,14 @@ class OpenAIService:
         messages = []
         
         if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
-            print(f"[PROMPT] System prompt added to OpenAI messages (length: {len(system_prompt)} chars)")
-            print(f"[PROMPT] System prompt preview: {system_prompt[:150]}...")
+            # Add enthusiasm context to system prompt
+            enthusiasm_context = self._get_enthusiasm_context(enthusiasm_level)
+            enhanced_prompt = f"{system_prompt}\n\n{enthusiasm_context}"
+            
+            messages.append({"role": "system", "content": enhanced_prompt})
+            print(f"[PROMPT] System prompt added to OpenAI messages (length: {len(enhanced_prompt)} chars)")
+            print(f"[PROMPT] System prompt preview: {enhanced_prompt[:150]}...")
+            print(f"[ENTHUSIASM] Current level: {enthusiasm_level}")
         else:
             print(f"[WARN] No system prompt provided - using default OpenAI behavior")
         
@@ -137,16 +145,42 @@ class OpenAIService:
             messages, 
             temperature=0.9,  # Higher temperature for more natural responses
             max_tokens=50,    # Short responses like texting
+            enthusiasm_level=enthusiasm_level,  # Pass enthusiasm level
             presence_penalty=0.6,  # Reduce repetition
             frequency_penalty=0.6  # Reduce repetition
         )
     
-    def _get_demo_response(self, messages: List[Dict[str, str]]) -> Dict[str, Any]:
+    def _get_enthusiasm_context(self, enthusiasm_level: int) -> str:
+        """
+        Get enthusiasm context based on current level
+        
+        Args:
+            enthusiasm_level: Current enthusiasm level (1-5)
+            
+        Returns:
+            Enthusiasm context string to enhance system prompt
+        """
+        enthusiasm_contexts = {
+            1: "CURRENT MOOD: Very low enthusiasm. You're feeling bored, uninterested, and giving minimal responses. Use very short replies (1-2 words), seem disengaged, and don't ask questions. Examples: 'ok', 'sure', 'meh', 'whatever'.",
+            
+            2: "CURRENT MOOD: Low enthusiasm. You're mildly disinterested but still responding. Keep responses short (2-4 words), show limited engagement. Examples: 'cool i guess', 'that's nice', 'maybe', 'alright'.",
+            
+            3: "CURRENT MOOD: Neutral enthusiasm. You're casually engaged, giving normal responses. Use typical short responses (3-6 words), moderate interest. Examples: 'that sounds cool', 'nice to know', 'yeah makes sense'.",
+            
+            4: "CURRENT MOOD: High enthusiasm. You're interested and engaged. Give slightly longer responses (4-8 words), show genuine interest, maybe ask a question. Examples: 'that's really cool!', 'wow tell me more', 'that sounds amazing'.",
+            
+            5: "CURRENT MOOD: Very high enthusiasm. You're excited and highly engaged. Give enthusiastic responses (5-10 words), use exclamation points, ask follow-up questions. Examples: 'omg that's so awesome!', 'wow that sounds incredible!', 'tell me everything!'."
+        }
+        
+        return enthusiasm_contexts.get(enthusiasm_level, enthusiasm_contexts[3])
+    
+    def _get_demo_response(self, messages: List[Dict[str, str]], enthusiasm_level: int = 3) -> Dict[str, Any]:
         """
         Generate demo responses for testing without OpenAI API
         
         Args:
             messages: List of message dictionaries
+            enthusiasm_level: Current enthusiasm level (1-5)
             
         Returns:
             Dictionary containing the demo response
@@ -773,76 +807,13 @@ class OpenAIService:
                     response = response.replace(full_word, shortform)
                     break
         
+        # Apply enthusiasm-based modifications to response
+        response = self._apply_enthusiasm_to_response(response, enthusiasm_level)
+        
         # Prevent repetition by checking conversation history
         if response.lower() in conversation_history:
-            # If we've said this before, try a different response
-            alternative_responses = [
-                "Yeah", "Right", "Cool", "Nice", "Sure", "Okay", "Hmm", "Interesting", 
-                "Really?", "Wow", "Awesome", "Great", "Good", "Bad", "Sad", "Happy", 
-                "Tired", "Bored", "Excited", "Nervous", "Scared", "Confused", "Surprised", 
-                "Disappointed", "Proud", "Jealous", "Lonely", "Stressed", "Relaxed", 
-                "Motivated", "Demotivated", "Inspired", "Creative", "Artistic", "Musical", 
-                "Sporty", "Academic", "Professional", "Casual", "Formal", "Informal", 
-                "Friendly", "Polite", "Rude", "Mean", "Kind", "Generous", "Selfish", 
-                "Honest", "Dishonest", "Trustworthy", "Suspicious", "Confident", "Shy", 
-                "Outgoing", "Introverted", "Extroverted", "Social", "Antisocial", "Funny", 
-                "Serious", "Silly", "Mature", "Immature", "Wise", "Foolish", "Smart", 
-                "Stupid", "Clever", "Dumb", "Genius", "Average", "Special", "Normal", 
-                "Weird", "Strange", "Different", "Unique", "Common", "Rare", "Popular", 
-                "Unpopular", "Famous", "Unknown", "Successful", "Unsuccessful", "Rich", 
-                "Poor", "Wealthy", "Broke", "Expensive", "Cheap", "Free", "Paid", "Worth", 
-                "Value", "Price", "Cost", "Money", "Cash", "Card", "Bank", "Account", 
-                "Balance", "Debt", "Credit", "Loan", "Mortgage", "Rent", "Bills", "Salary", 
-                "Wage", "Income", "Profit", "Loss", "Gain", "Win", "Lose", "Tie", "Draw", 
-                "Match", "Game", "Play", "Fun", "Boring", "Interesting", "Exciting", 
-                "Amazing", "Incredible", "Fantastic", "Terrible", "Awful", "Horrible", 
-                "Disgusting", "Gross", "Nasty", "Clean", "Dirty", "Fresh", "Old", "New", 
-                "Young", "Big", "Small", "Huge", "Tiny", "Large", "Little", "Massive", 
-                "Mini", "Giant", "Micro", "Macro", "Mega", "Super", "Ultra", "Hyper", 
-                "Giga", "Tera", "Peta", "Exa", "Zetta", "Yotta", "Sup", "Nm", "Hbu", 
-                "Same", "Right", "Exactly", "Totally", "Definitely", "Absolutely", 
-                "Probably", "Maybe", "Possibly", "Definitely not", "No way", "Yes way", 
-                "Really", "Seriously", "Honestly", "Tbh", "Fr", "No cap", "Facts", 
-                "True", "False", "Lie", "Truth", "Real", "Fake", "Genuine", "Authentic", 
-                "Legit", "Illegitimate", "Valid", "Invalid", "Correct", "Incorrect", 
-                "Right", "Wrong", "Accurate", "Inaccurate", "Precise", "Imprecise", 
-                "Exact", "Approximate", "Close", "Far", "Near", "Distant", "Close by", 
-                "Far away", "Nearby", "Local", "Remote", "Downtown", "Uptown", "Suburban", 
-                "Rural", "Urban", "City", "Town", "Village", "Hamlet", "Metropolis", 
-                "Megalopolis", "Conurbation", "Agglomeration", "Settlement", "Community", 
-                "Neighborhood", "District", "Ward", "Precinct", "Zone", "Area", "Region", 
-                "Territory", "Province", "State", "Country", "Nation", "Continent", 
-                "Hemisphere", "Globe", "World", "Earth", "Planet", "Universe", "Cosmos", 
-                "Galaxy", "Solar system", "Star", "Sun", "Moon", "Planet", "Asteroid", 
-                "Comet", "Meteor", "Meteorite", "Meteoroid", "Satellite", "Spacecraft", 
-                "Rocket", "Shuttle", "Station", "Base", "Facility", "Building", "Structure", 
-                "Construction", "Architecture", "Design", "Plan", "Blueprint", "Sketch", 
-                "Drawing", "Painting", "Sculpture", "Art", "Artwork", "Masterpiece", 
-                "Creation", "Work", "Piece", "Item", "Object", "Thing", "Stuff", 
-                "Material", "Substance", "Matter", "Element", "Compound", "Mixture", 
-                "Solution", "Suspension", "Colloid", "Emulsion", "Foam", "Bubble", "Drop", 
-                "Drip", "Spill", "Leak", "Flow", "Stream", "River", "Lake", "Ocean", 
-                "Sea", "Pond", "Pool", "Puddle", "Water", "Liquid", "Fluid", "Gas", 
-                "Vapor", "Steam", "Smoke", "Fog", "Mist", "Haze", "Cloud", "Sky", "Air", 
-                "Atmosphere", "Weather", "Climate", "Temperature", "Heat", "Cold", "Warm", 
-                "Cool", "Hot", "Freezing", "Boiling", "Melting", "Freezing", "Solid", 
-                "Liquid", "Gas", "Plasma", "Crystal", "Ice", "Snow", "Rain", "Storm", 
-                "Wind", "Breeze", "Gust", "Hurricane", "Tornado", "Cyclone", "Typhoon", 
-                "Monsoon", "Drought", "Flood", "Earthquake", "Volcano", "Tsunami", 
-                "Avalanche", "Landslide", "Mudslide", "Rockslide", "Snowslide", 
-                "Ice slide", "Glacier", "Iceberg", "Frozen", "Thawed", "Melted", 
-                "Solidified", "Liquefied", "Vaporized", "Condensed", "Evaporated", 
-                "Sublimated", "Deposited", "Precipitated", "Crystallized", "Dissolved", 
-                "Saturated", "Unsaturated", "Supersaturated", "Concentrated", "Diluted", 
-                "Pure", "Impure", "Clean", "Dirty", "Contaminated", "Polluted", "Toxic", 
-                "Poisonous", "Harmful", "Dangerous", "Safe", "Secure", "Protected", 
-                "Exposed", "Vulnerable", "Defenseless", "Helpless", "Powerless", "Weak", 
-                "Strong", "Powerful", "Mighty", "Forceful", "Intense", "Mild", "Gentle", 
-                "Soft", "Hard", "Tough", "Rough", "Smooth", "Coarse", "Fine", "Thick", 
-                "Thin", "Wide", "Narrow", "Broad", "Deep", "Shallow", "High", "Low", 
-                "Tall", "Short", "Long", "Brief", "Quick", "Slow", "Fast", "Rapid", 
-                "Swift", "Speedy"
-            ]
+            # If we've said this before, try a different response based on enthusiasm
+            alternative_responses = self._get_enthusiasm_based_alternatives(enthusiasm_level)
             
             # Pick a random alternative that hasn't been used recently
             for alt_response in alternative_responses:
@@ -885,6 +856,66 @@ class OpenAIService:
             },
             "model": "demo-mode"
         }
+    
+    def _apply_enthusiasm_to_response(self, response: str, enthusiasm_level: int) -> str:
+        """
+        Apply enthusiasm-based modifications to a response
+        
+        Args:
+            response: Original response
+            enthusiasm_level: Current enthusiasm level (1-5)
+            
+        Returns:
+            Modified response based on enthusiasm
+        """
+        if enthusiasm_level == 1:
+            # Very low enthusiasm - make responses shorter and more monotone
+            if len(response) > 10:
+                response = response.split()[0]  # Just first word
+            response = response.lower()
+            
+        elif enthusiasm_level == 2:
+            # Low enthusiasm - shorter responses, less punctuation
+            words = response.split()
+            if len(words) > 3:
+                response = " ".join(words[:3])
+            response = response.replace("!", "").replace("?", "")
+            
+        elif enthusiasm_level == 4:
+            # High enthusiasm - add some excitement
+            if not response.endswith("!") and not response.endswith("?"):
+                if "cool" in response.lower() or "nice" in response.lower() or "awesome" in response.lower():
+                    response += "!"
+            
+        elif enthusiasm_level == 5:
+            # Very high enthusiasm - add excitement and maybe elongate words
+            if not response.endswith("!"):
+                response += "!"
+            # Elongate words occasionally
+            if random.random() < 0.3:
+                response = response.replace("cool", "coool").replace("nice", "nicee").replace("wow", "woww")
+        
+        return response
+    
+    def _get_enthusiasm_based_alternatives(self, enthusiasm_level: int) -> List[str]:
+        """
+        Get alternative responses based on enthusiasm level
+        
+        Args:
+            enthusiasm_level: Current enthusiasm level (1-5)
+            
+        Returns:
+            List of alternative responses
+        """
+        alternatives = {
+            1: ["ok", "sure", "k", "meh", "whatever", "fine"],
+            2: ["alright", "i guess", "maybe", "cool i guess", "that's nice"],
+            3: ["yeah", "cool", "nice", "right", "okay", "sure thing"],
+            4: ["that's cool!", "nice one", "awesome", "really?", "wow cool"],
+            5: ["omg yes!", "that's amazing!", "wow awesome!", "so cool!", "incredible!"]
+        }
+        
+        return alternatives.get(enthusiasm_level, alternatives[3])
 
 
 # Create singleton instance

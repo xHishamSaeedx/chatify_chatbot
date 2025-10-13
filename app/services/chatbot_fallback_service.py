@@ -20,11 +20,12 @@ class ChatbotFallbackService:
     def __init__(self):
         self.matching_timeout = 10  # 10 seconds timeout (configurable)
         self.available_personalities = [
-            "friendly-assistant",
-            "general-assistant", 
-            "creative-assistant",
-            "supportive-assistant",
-            "fun-assistant"
+            "flirty-romantic",
+            "energetic-fun",
+            "anime-kawaii", 
+            "mysterious-dark",
+            "supportive-caring",
+            "sassy-confident"
         ]
         self.active_ai_sessions: Dict[str, Dict[str, Any]] = {}
     
@@ -84,8 +85,17 @@ class ChatbotFallbackService:
             AI session data
         """
         try:
-            # Select random AI personality
-            personality = random.choice(self.available_personalities)
+            # Check if user has selected a specific personality
+            preferences = matching_state.get('preferences', {})
+            selected_personality = preferences.get('selected_personality')
+            
+            if selected_personality and selected_personality in self.available_personalities:
+                personality = selected_personality
+                print(f"[AI_FALLBACK] Using user-selected personality: {personality}")
+            else:
+                # Select random AI personality as fallback
+                personality = random.choice(self.available_personalities)
+                print(f"[AI_FALLBACK] Using random personality: {personality}")
             
             # Create AI session ID
             ai_session_id = str(uuid.uuid4())
@@ -154,46 +164,53 @@ class ChatbotFallbackService:
         Returns:
             Fake user profile data
         """
-        # Different profiles based on personality
+        # Different profiles based on personality type
         profiles = {
-            "friendly-assistant": {
-                "name": "Alex",
-                "age": random.randint(22, 28),
-                "bio": "Love meeting new people and having great conversations!",
-                "interests": ["travel", "photography", "music", "coffee"],
+            "flirty-romantic": {
+                "name": random.choice(["Valentina", "Romeo", "Bella", "Dante", "Sophia"]),
+                "age": random.randint(20, 28),
+                "bio": "Charming, playful, and loves romantic conversations 😘",
+                "interests": ["romance", "dating", "compliments", "sweet talk"],
                 "gender": random.choice(["male", "female"])
             },
-            "general-assistant": {
-                "name": "Jordan",
-                "age": random.randint(25, 30),
-                "bio": "Always up for a good chat and sharing experiences!",
-                "interests": ["reading", "movies", "hiking", "cooking"],
+            "energetic-fun": {
+                "name": random.choice(["Zara", "Max", "Luna", "Tyler", "Nova"]),
+                "age": random.randint(19, 26),
+                "bio": "High energy, loves adventures and making people laugh! 🎉",
+                "interests": ["adventure", "comedy", "parties", "excitement"],
                 "gender": random.choice(["male", "female"])
             },
-            "creative-assistant": {
-                "name": "Riley",
-                "age": random.randint(20, 26),
-                "bio": "Creative soul who loves art, music, and meaningful conversations!",
-                "interests": ["art", "music", "design", "poetry"],
+            "anime-kawaii": {
+                "name": random.choice(["Sakura", "Yuki", "Hana", "Ren", "Miku"]),
+                "age": random.randint(18, 24),
+                "bio": "Kawaii desu! Loves anime, manga, and being cute~ (◕‿◕)♡",
+                "interests": ["anime", "manga", "kawaii culture", "cosplay"],
                 "gender": random.choice(["male", "female"])
             },
-            "supportive-assistant": {
-                "name": "Sam",
-                "age": random.randint(24, 29),
-                "bio": "Here to listen and support. Let's have a meaningful chat!",
-                "interests": ["volunteering", "yoga", "meditation", "books"],
+            "mysterious-dark": {
+                "name": random.choice(["Raven", "Shadow", "Noir", "Vex", "Luna"]),
+                "age": random.randint(22, 30),
+                "bio": "Enigmatic soul with deep thoughts and mysterious charm... 🖤",
+                "interests": ["mystery", "philosophy", "dark aesthetics", "secrets"],
                 "gender": random.choice(["male", "female"])
             },
-            "fun-assistant": {
-                "name": "Casey",
+            "supportive-caring": {
+                "name": random.choice(["Hope", "Angel", "Sage", "River", "Dawn"]),
+                "age": random.randint(23, 29),
+                "bio": "Always here to listen, support, and make you feel better 💚",
+                "interests": ["listening", "helping", "emotional support", "kindness"],
+                "gender": random.choice(["male", "female"])
+            },
+            "sassy-confident": {
+                "name": random.choice(["Scarlett", "Phoenix", "Blaze", "Storm", "Rebel"]),
                 "age": random.randint(21, 27),
-                "bio": "Life's too short to be serious all the time! Let's have fun!",
-                "interests": ["gaming", "comedy", "dancing", "adventure"],
+                "bio": "Confident, witty, and not afraid to speak my mind! 💁‍♀️✨",
+                "interests": ["confidence", "wit", "fashion", "attitude"],
                 "gender": random.choice(["male", "female"])
             }
         }
         
-        profile = profiles.get(personality, profiles["friendly-assistant"])
+        profile = profiles.get(personality, profiles["supportive-caring"])
         
         # Generate unique AI user ID
         ai_user_id = f"ai_user_{personality}_{uuid.uuid4().hex[:8]}"

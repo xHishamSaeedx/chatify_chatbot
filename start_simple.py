@@ -17,27 +17,28 @@ os.environ.setdefault("AI_FALLBACK_ENABLED", "true")
 os.environ.setdefault("LOG_LEVEL", "INFO")
 
 def main():
-    print("🚀 Starting Chatify Chatbot Service (Simple Mode)")
-    print("📍 Service will be available at: http://localhost:8000")
-    print("🤖 AI Fallback API: http://localhost:8000/api/v1/ai-fallback/")
-    print("📊 Health check: http://localhost:8000/api/v1/health")
-    print("⚠️  Note: This is a simplified version without Redis")
+    print("Starting Chatify Chatbot Service (Simple Mode)")
+    print("Service will be available at: http://localhost:8000")
+    print("AI Fallback API: http://localhost:8000/api/v1/ai-fallback/")
+    print("Health check: http://localhost:8000/api/v1/health")
+    print("Note: This is a simplified version without Redis")
     print("   For full functionality, use Docker setup with Redis")
     print()
     
     try:
         # Start the server
+        port = int(os.environ.get("PORT", 8000))
         uvicorn.run(
-            app,
-            host="0.0.0.0",
-            port=8000,
-            reload=True,
+            "app.main:app",
+            host="0.0.0.0", 
+            port=port,
+            reload=False,
             log_level="info"
         )
     except KeyboardInterrupt:
-        print("\n🛑 Service stopped by user")
+        print("\nService stopped by user")
     except Exception as e:
-        print(f"\n❌ Error starting service: {e}")
+        print(f"\nError starting service: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":

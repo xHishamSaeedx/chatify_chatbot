@@ -182,6 +182,7 @@ async def send_ai_message(request: AIMessageRequest) -> Dict[str, Any]:
 
 
 @router.delete("/end-ai-session/{user_id}")
+@router.post("/end-ai-session/{user_id}")
 async def end_ai_session(user_id: str) -> Dict[str, Any]:
     """
     End AI session for user
