@@ -14,15 +14,21 @@ class OpenAIService:
         """Initialize OpenAI client"""
         print(f"[KEY] OpenAI API Key loaded: {settings.OPENAI_API_KEY[:10]}..." if settings.OPENAI_API_KEY else "[KEY] No OpenAI API Key found")
         
-        if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY == "your-openai-api-key":
-            raise ValueError(
-                "OpenAI API key is not configured. Please set OPENAI_API_KEY environment variable."
-            )
-        
-        self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
-        self.model = "gpt-4o-mini"  # Better model for natural conversation
-        self.demo_mode = False
-        print("[OK] OpenAI API key found. Using real OpenAI API.")
+        # Try to initialize OpenAI, fall back to demo mode if it fails
+        try:
+            if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY == "your-openai-api-key":
+                raise ValueError("No API key configured")
+            
+            self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
+            self.model = "gpt-4o-mini"
+            self.demo_mode = False
+            print("[OK] OpenAI API key found. Using real OpenAI API.")
+        except Exception as e:
+            print(f"[WARN] OpenAI initialization failed: {e}")
+            print("[DEMO] Falling back to DEMO MODE with pre-built responses")
+            self.client = None
+            self.model = "demo-mode"
+            self.demo_mode = True
     
     async def chat_completion(
         self,
@@ -48,12 +54,25 @@ class OpenAIService:
             Dictionary containing the chat completion response
         """
         try:
+            print("\n" + "="*80)
+            print("[OPENAI] GENERATING AI RESPONSE")
+            print("="*80)
+            print(f"Model: {model or self.model}")
+            print(f"Temperature: {temperature}")
+            print(f"Max Tokens: {max_tokens}")
+            print(f"Enthusiasm Level: {enthusiasm_level}/5")
+            print(f"Message Count: {len(messages)}")
+            if messages:
+                last_msg = messages[-1]
+                print(f"Last Message: {last_msg.get('content', '')[:100]}...")
+            print("="*80 + "\n")
+            
             if not self.client or self.demo_mode:
                 # Return demo response
                 print("[DEMO] Using demo mode response")
                 return self._get_demo_response(messages, enthusiasm_level)
             
-            print("[API] Using real OpenAI API")
+            print("[API] ⚡ Calling real OpenAI API...")
             response = self.client.chat.completions.create(
                 model=model or self.model,
                 messages=messages,
@@ -62,9 +81,20 @@ class OpenAIService:
                 **kwargs
             )
             
+            ai_content = response.choices[0].message.content
+            print("\n" + "="*80)
+            print("[OPENAI] AI RESPONSE RECEIVED")
+            print("="*80)
+            print(f"Response: {ai_content}")
+            print(f"Prompt Tokens: {response.usage.prompt_tokens}")
+            print(f"Completion Tokens: {response.usage.completion_tokens}")
+            print(f"Total Tokens: {response.usage.total_tokens}")
+            print(f"Model Used: {response.model}")
+            print("="*80 + "\n")
+            
             return {
                 "success": True,
-                "content": response.choices[0].message.content,
+                "content": ai_content,
                 "usage": {
                     "prompt_tokens": response.usage.prompt_tokens,
                     "completion_tokens": response.usage.completion_tokens,

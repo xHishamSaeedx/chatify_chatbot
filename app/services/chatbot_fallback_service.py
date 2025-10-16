@@ -300,6 +300,14 @@ class ChatbotFallbackService:
             AI response or None
         """
         try:
+            print("\n" + "="*80)
+            print("[AI_FALLBACK] PROCESSING MESSAGE FROM RANDOM CHAT")
+            print("="*80)
+            print(f"User ID: {user_id}")
+            print(f"Message: {message}")
+            print(f"Message Length: {len(message)} characters")
+            print("="*80 + "\n")
+            
             # Get AI session
             session_data = await redis_service.get_ai_chatbot_session(user_id)
             
@@ -313,10 +321,25 @@ class ChatbotFallbackService:
                 print(f"[AI_FALLBACK] No chatbot session ID found for user {user_id}")
                 return None
             
+            print(f"[AI_FALLBACK] Found session: {chatbot_session_id}")
+            print(f"Personality: {session_data.get('personality', 'unknown')}")
+            print(f"AI User ID: {session_data.get('ai_user_id', 'unknown')}")
+            
             # Send message to chatbot
+            print(f"[AI_FALLBACK] Forwarding message to session service...")
             response = await session_service.send_message(chatbot_session_id, message)
             
             if response.get("success"):
+                print("\n" + "="*80)
+                print("[AI_FALLBACK] AI RESPONSE GENERATED")
+                print("="*80)
+                print(f"User ID: {user_id}")
+                print(f"AI Response: {response.get('response', '')}")
+                print(f"Session Message Count: {response.get('message_count', 0)}")
+                print(f"AI User ID: {session_data.get('ai_user_id')}")
+                print(f"Timestamp: {__import__('datetime').datetime.now().isoformat()}")
+                print("="*80 + "\n")
+                
                 # Track analytics
                 analytics_service.track_ai_chatbot_message(
                     user_id=user_id,
@@ -332,7 +355,7 @@ class ChatbotFallbackService:
                     "session_id": session_data.get("session_id")
                 }
             else:
-                print(f"[AI_FALLBACK] Failed to send message to AI for user {user_id}: {response.get('error')}")
+                print(f"❌ [AI_FALLBACK] Failed to send message to AI for user {user_id}: {response.get('error')}")
                 return None
                 
         except Exception as e:

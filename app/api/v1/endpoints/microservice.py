@@ -107,6 +107,16 @@ async def send_message_microservice(
     with enhanced response metadata and performance tracking.
     """
     try:
+        print("\n" + "="*80)
+        print("[MICROSERVICE] INCOMING MESSAGE TO CHATBOT")
+        print("="*80)
+        print(f"Session ID: {session_id}")
+        print(f"Message: {request.message}")
+        print(f"Message Length: {len(request.message)} characters")
+        print(f"Orchestrator ID: {x_orchestrator_id or 'None'}")
+        print(f"Timestamp: {__import__('datetime').datetime.now().isoformat()}")
+        print("="*80 + "\n")
+        
         # Merge orchestrator metadata
         orchestrator_metadata = request.orchestrator_metadata or {}
         if x_orchestrator_id:
@@ -121,6 +131,19 @@ async def send_message_microservice(
         )
         
         if result["success"]:
+            print("\n" + "="*80)
+            print("[MICROSERVICE] CHATBOT RESPONSE READY")
+            print("="*80)
+            print(f"Session ID: {session_id}")
+            print(f"Response: {result.get('response', '')}")
+            print(f"Message Count: {result.get('message_count', 0)}")
+            print(f"Terminated: {result.get('terminated', False)}")
+            print(f"On Seen: {result.get('on_seen', False)}")
+            if result.get('terminated'):
+                print(f"Termination Reason: {result.get('termination_reason', 'N/A')}")
+            print(f"Timestamp: {__import__('datetime').datetime.now().isoformat()}")
+            print("="*80 + "\n")
+            
             return MicroserviceResponse(
                 success=True,
                 response=result.get("response"),

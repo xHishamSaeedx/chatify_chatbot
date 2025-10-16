@@ -5,6 +5,13 @@ Application configuration settings
 from typing import List, Optional
 from pydantic import validator
 from pydantic_settings import BaseSettings
+from dotenv import load_dotenv
+import os
+from pathlib import Path
+
+# Load environment variables from .env file explicitly with override
+env_path = Path(__file__).parent.parent.parent / ".env"
+load_dotenv(dotenv_path=env_path, override=True)
 
 
 class Settings(BaseSettings):

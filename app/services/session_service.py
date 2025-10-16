@@ -5,11 +5,20 @@ Session management service for chatbot conversations
 import uuid
 import asyncio
 import random
+import sys
+import io
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
 from app.services.firebase_service import firebase_service
 from app.services.openai_service import openai_service
 from app.services.analytics_service import analytics_service
+
+# Fix Windows console encoding for emoji support
+if sys.platform == 'win32':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except:
+        pass
 
 
 class SessionService:
@@ -37,8 +46,8 @@ class SessionService:
         # Get and cache system prompt at session creation (only once!)
         system_prompt = await self._get_system_prompt(template_id or "general-assistant")
         
-        # Set random response limit for this session (5-8 exchanges) - more reasonable length
-        response_limit = random.randint(5, 8)
+        # Set random response limit for this session (15-25 exchanges) - longer conversations
+        response_limit = random.randint(15, 25)
         
         # Set random "on seen" behavior parameters
         seen_start_range = random.randint(1, max(2, response_limit - 2))  # When to start going "on seen"
@@ -111,7 +120,16 @@ class SessionService:
         Returns:
             Chatbot response or termination signal
         """
+        print("\n" + "="*80)
+        print("[SESSION] PROCESSING USER MESSAGE")
+        print("="*80)
+        print(f"Session ID: {session_id}")
+        print(f"User Message: {user_message}")
+        print(f"Timestamp: {datetime.now().isoformat()}")
+        print("="*80 + "\n")
+        
         if session_id not in self.active_sessions:
+            print(f"[SESSION] Session not found: {session_id}")
             return {
                 "success": False,
                 "error": "Session not found or expired"
@@ -120,8 +138,15 @@ class SessionService:
         session = self.active_sessions[session_id]
         current_time = datetime.utcnow()
         
+        print(f"[SESSION] Session found and active")
+        print(f"User ID: {session.get('user_id')}")
+        print(f"Template: {session.get('template_id')}")
+        print(f"Current Message Count: {session.get('message_count', 0)}")
+        print(f"Exchange Count: {session.get('exchange_count', 0)}/{session.get('response_limit', 0)}")
+        
         # Check if session is still active
         if session["status"] != "active":
+            print(f"[SESSION] Session is not active: {session['status']}")
             return {
                 "success": False,
                 "error": "Session is no longer active"
@@ -135,8 +160,8 @@ class SessionService:
         responses_left = session["response_limit"] - session["exchange_count"]
         print(f"[EXCHANGE] 🔄 Exchange {session['exchange_count']}/{session['response_limit']} | Responses left: {responses_left} | Session: {session_id}")
         
-        # Check if we've reached the response limit
-        if session["exchange_count"] >= session["response_limit"]:
+        # DISABLED: Check if we've reached the response limit - ALWAYS RESPOND NOW
+        if False and session["exchange_count"] >= session["response_limit"]:
             session["status"] = "terminated"
             session["termination_reason"] = "response_limit_reached"
             session["ended_at"] = current_time.isoformat()
@@ -156,6 +181,8 @@ class SessionService:
                 "terminated": True,
                 "termination_reason": "response_limit_reached",
                 "response": "gtg bye",  # More realistic termination
+                "session_id": session_id,
+                "message_count": session["message_count"],
                 "debug_info": {
                     "response_limit": session["response_limit"],
                     "exchange_count": session["exchange_count"],
@@ -165,10 +192,10 @@ class SessionService:
                 }
             }
         
-        # Check for "on seen" behavior
-        should_go_on_seen = self._should_go_on_seen(session)
+        # DISABLED: Check for "on seen" behavior - ALWAYS RESPOND NOW
+        should_go_on_seen = False  # self._should_go_on_seen(session)
         
-        if should_go_on_seen:
+        if False and should_go_on_seen:
             session["is_on_seen"] = True
             session["seen_messages_ignored"] += 1
             
@@ -200,6 +227,8 @@ class SessionService:
                 "success": True,
                 "on_seen": True,
                 "response": "",  # Empty response - user is left on seen
+                "session_id": session_id,
+                "message_count": session["message_count"],
                 "debug_info": {
                     "response_limit": session["response_limit"],
                     "exchange_count": session["exchange_count"],
@@ -239,8 +268,8 @@ class SessionService:
         
         print(f"[ENTHUSIASM] 💖 Level: {old_enthusiasm} -> {new_enthusiasm} | Session: {session_id} | Message: '{user_message[:30]}...'")
         
-        # Check for dry conversation (very short responses indicating disinterest)
-        if self._is_conversation_drying_up(session, user_message):
+        # DISABLED: Check for dry conversation (very short responses indicating disinterest)
+        if False and self._is_conversation_drying_up(session, user_message):
             session["status"] = "terminated" 
             session["termination_reason"] = "conversation_dried_up"
             session["ended_at"] = current_time.isoformat()
@@ -252,6 +281,8 @@ class SessionService:
                 "terminated": True,
                 "termination_reason": "conversation_dried_up", 
                 "response": "ok bye",  # More realistic dry termination
+                "session_id": session_id,
+                "message_count": session["message_count"],
                 "debug_info": {
                     "response_limit": session["response_limit"],
                     "exchange_count": session["exchange_count"],
@@ -569,22 +600,21 @@ class SessionService:
         
         user_message_clean = user_message.lower().strip()
         
-        # Moderate termination - short responses after a few exchanges
-        if len(user_message_clean) <= 3 and session["exchange_count"] >= 3:
+        # Less aggressive termination - short responses after more exchanges
+        if len(user_message_clean) <= 2 and session["exchange_count"] >= 10:
             return True
             
-        # Termination for dry responses after a few exchanges
-        if user_message_clean in dry_indicators and session["exchange_count"] >= 2:
+        # Termination for very dry responses after many exchanges
+        very_dry = ["k", ".", "..."]
+        if user_message_clean in very_dry and session["exchange_count"] >= 8:
             return True
         
-        # Single word responses after exchange 2
-        if len(user_message.split()) == 1 and session["exchange_count"] >= 2:
+        # Single character responses after more exchanges
+        if len(user_message_clean) == 1 and session["exchange_count"] >= 8:
             return True
             
-        # Questions that show they're not engaged (typical dating app low-effort questions)
-        boring_questions = ["wyd", "what's up", "hru", "how are you", "what are you doing"]
-        if any(boring in user_message_clean for boring in boring_questions) and session["exchange_count"] >= 3:
-            return True
+        # Don't terminate on common conversation starters - they're normal!
+        # Only terminate if the ENTIRE conversation has been boring (checked elsewhere)
         
         return False
     
