@@ -4,8 +4,14 @@ services:
     env: python
     buildCommand: "./render-build.sh"
     startCommand: "./render-start.sh"
+    healthCheckPath: "/health"
+    autoDeploy: true
     envVars:
       - key: PYTHON_VERSION
         value: "3.11"
-      - key: PORT
-        value: "10000"
+      - key: ENVIRONMENT
+        value: "production"
+      - key: HOST
+        value: "0.0.0.0"
+      - key: LOG_LEVEL
+        value: "info"
