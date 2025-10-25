@@ -19,12 +19,13 @@ def main():
     print(f"Host: {host}")
     print(f"Port: {port}")
     
-    # Start the server
+    # Start the server with proper configuration
     uvicorn.run(
         app,
         host=host,
         port=port,
-        log_level="info"
+        log_level="info",
+        access_log=True
     )
 
 if __name__ == "__main__":
