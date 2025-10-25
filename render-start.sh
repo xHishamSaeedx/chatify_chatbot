@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
 
-uvicorn app.main:app --host 0.0.0.0 --port $PORT
+echo "Starting Chatify Chatbot on port $PORT"
+python start_render.py
 

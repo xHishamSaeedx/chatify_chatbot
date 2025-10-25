@@ -15,3 +15,5 @@ services:
         value: "0.0.0.0"
       - key: LOG_LEVEL
         value: "info"
+      - key: PORT
+        value: "10000"
