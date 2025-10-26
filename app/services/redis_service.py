@@ -21,7 +21,7 @@ class RedisService:
         """Initialize Redis connection"""
         try:
             # Check for Redis URL first (for cloud deployments)
-            redis_url = getattr(settings, 'REDIS_URL', None)
+            redis_url = settings.REDIS_URL
             
             if redis_url:
                 # Use Redis URL for cloud deployments
@@ -35,10 +35,10 @@ class RedisService:
                 print(f"[REDIS] Using Redis URL: {redis_url}")
             else:
                 # Fallback to individual settings for local development
-                redis_host = getattr(settings, 'REDIS_HOST', 'localhost')
-                redis_port = getattr(settings, 'REDIS_PORT', 6379)
-                redis_db = getattr(settings, 'REDIS_DB', 0)
-                redis_password = getattr(settings, 'REDIS_PASSWORD', None)
+                redis_host = settings.REDIS_HOST
+                redis_port = settings.REDIS_PORT
+                redis_db = settings.REDIS_DB
+                redis_password = settings.REDIS_PASSWORD
                 
                 self.redis_client = redis.Redis(
                     host=redis_host,

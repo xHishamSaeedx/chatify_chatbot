@@ -17,3 +17,5 @@ services:
         value: "info"
       - key: PORT
         value: "8000"
+      - key: REDIS_URL
+        value: "redis://default:your-password@your-redis-instance.upstash.io:6379"
