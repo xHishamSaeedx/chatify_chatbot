@@ -6,8 +6,6 @@ This ensures proper port binding and handles all edge cases
 
 import os
 import sys
-import uvicorn
-from app.main import app
 
 def main():
     """Start the application with proper port binding for Render"""
@@ -27,8 +25,12 @@ def main():
     print(f"  ENVIRONMENT: {os.getenv('ENVIRONMENT')}")
     print(f"  REDIS_URL: {'Set' if os.getenv('REDIS_URL') else 'Not set'}")
     
-    # Start the server with proper configuration
+    # Import here to avoid build-time import errors
     try:
+        import uvicorn
+        from app.main import app
+        
+        # Start the server with proper configuration
         uvicorn.run(
             app,
             host=host,
@@ -37,10 +39,15 @@ def main():
             access_log=True,
             loop="asyncio"
         )
+    except ImportError as e:
+        print(f"❌ Import error: {e}")
+        print("Make sure all dependencies are installed")
+        sys.exit(1)
     except Exception as e:
         print(f"❌ Failed to start server: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
 if __name__ == "__main__":
     main()
-
