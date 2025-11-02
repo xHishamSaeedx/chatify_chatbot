@@ -2,13 +2,12 @@ services:
   - type: web
     name: chatify-chatbot
     env: python
-    buildCommand: "pip install --upgrade pip && pip install -r requirements.txt"
     startCommand: "python render_start_fixed.py"
     healthCheckPath: "/health"
     autoDeploy: true
     envVars:
       - key: PYTHON_VERSION
-        value: "3.11"
+        value: "3.11.0"
       - key: ENVIRONMENT
         value: "production"
       - key: HOST
