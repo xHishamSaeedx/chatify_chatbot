@@ -118,6 +118,9 @@ class FirebaseService:
     def push_data(self, path: str, data: Dict[str, Any]) -> Optional[str]:
         """Push data to Firebase Realtime Database and return the key"""
         try:
+            if not self._initialized or not self._db:
+                print(f"[WARN] Firebase not initialized, skipping push to {path}")
+                return None
             ref = self.db.reference(path)
             new_ref = ref.push(data)
             return new_ref.key
