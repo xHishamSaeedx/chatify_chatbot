@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot Keep-Alive</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #f5576c;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+        .status.active {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        .log-entry {
+            padding: 5px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .info { color: #17a2b8; }
+        button {
+            background: #f5576c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #f093fb;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #f5576c;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Chatbot Keep-Alive Monitor</h1>
+        <p class="subtitle">Keeps your Chatbot service awake by pinging it every 3 minutes</p>
+        
+        <div id="status" class="status warning">
+            ⏳ Initializing...
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="pingCount">0</div>
+                <div class="stat-label">Total Pings</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="successCount">0</div>
+                <div class="stat-label">Successful</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="failCount">0</div>
+                <div class="stat-label">Failed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="nextPing">--</div>
+                <div class="stat-label">Next Ping (s)</div>
+            </div>
+        </div>
+
+        <div>
+            <button id="startBtn" onclick="startKeepAlive()">▶️ Start</button>
+            <button id="stopBtn" onclick="stopKeepAlive()" disabled>⏸️ Stop</button>
+            <button onclick="pingNow()">🔄 Ping Now</button>
+            <button onclick="clearLogs()">🗑️ Clear Logs</button>
+        </div>
+
+        <h3>Activity Log</h3>
+        <div id="log" class="log">
+            <div class="log-entry info">💡 Click "Start" to begin monitoring...</div>
+        </div>
+    </div>
+
+    <script>
+        const CHATBOT_URL = 'https://chatify-chatbot.onrender.com/health';
+        const PING_INTERVAL = 3 * 60 * 1000; // 3 minutes (more frequent to prevent sleep)
+        
+        let intervalId = null;
+        let countdownId = null;
+        let stats = {
+            total: 0,
+            success: 0,
+            failed: 0
+        };
+        let nextPingTime = 0;
+
+        function addLog(message, type = 'info') {
+            const log = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.innerHTML = `[${timestamp}] ${message}`;
+            log.insertBefore(entry, log.firstChild);
+            
+            if (log.children.length > 50) {
+                log.removeChild(log.lastChild);
+            }
+        }
+
+        function updateStatus(message, className) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${className}`;
+        }
+
+        function updateStats() {
+            document.getElementById('pingCount').textContent = stats.total;
+            document.getElementById('successCount').textContent = stats.success;
+            document.getElementById('failCount').textContent = stats.failed;
+        }
+
+        function updateCountdown() {
+            const now = Date.now();
+            const remaining = Math.max(0, Math.ceil((nextPingTime - now) / 1000));
+            document.getElementById('nextPing').textContent = remaining;
+            
+            if (remaining === 0 && intervalId) {
+                document.getElementById('nextPing').textContent = '⏳';
+            }
+        }
+
+        async function pingBackend() {
+            stats.total++;
+            addLog('🔄 Pinging chatbot service...', 'info');
+            
+            try {
+                const startTime = Date.now();
+                const response = await fetch(CHATBOT_URL, {
+                    method: 'GET',
+                    cache: 'no-cache'
+                });
+                const duration = Date.now() - startTime;
+                
+                if (response.ok) {
+                    stats.success++;
+                    addLog(`✅ Chatbot is alive! (${response.status} - ${duration}ms)`, 'success');
+                    updateStatus('✅ Chatbot is ACTIVE', 'active');
+                } else {
+                    stats.failed++;
+                    addLog(`❌ Chatbot responded with error: ${response.status}`, 'error');
+                    updateStatus('⚠️ Chatbot returned error', 'error');
+                }
+            } catch (error) {
+                stats.failed++;
+                addLog(`❌ Ping failed: ${error.message}`, 'error');
+                updateStatus('⚠️ Chatbot unreachable', 'error');
+            }
+            
+            updateStats();
+            nextPingTime = Date.now() + PING_INTERVAL;
+        }
+
+        function startKeepAlive() {
+            if (intervalId) return;
+            
+            addLog('🚀 Keep-alive monitor started', 'success');
+            updateStatus('🟢 Monitoring ACTIVE', 'active');
+            
+            pingNow();
+            intervalId = setInterval(pingBackend, PING_INTERVAL);
+            countdownId = setInterval(updateCountdown, 1000);
+            
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+        }
+
+        function stopKeepAlive() {
+            if (!intervalId) return;
+            
+            clearInterval(intervalId);
+            clearInterval(countdownId);
+            intervalId = null;
+            countdownId = null;
+            
+            addLog('⏸️ Keep-alive monitor stopped', 'info');
+            updateStatus('⏸️ Monitoring STOPPED', 'warning');
+            
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            document.getElementById('nextPing').textContent = '--';
+        }
+
+        function pingNow() {
+            if (intervalId) {
+                clearInterval(intervalId);
+                intervalId = setInterval(pingBackend, PING_INTERVAL);
+            }
+            pingBackend();
+        }
+
+        function clearLogs() {
+            const log = document.getElementById('log');
+            log.innerHTML = '<div class="log-entry info">💡 Logs cleared</div>';
+        }
+
+        window.addEventListener('load', () => {
+            addLog('💡 Page loaded. Click "Start" to begin monitoring.', 'info');
+        });
+
+        window.addEventListener('beforeunload', (e) => {
+            if (intervalId) {
+                e.preventDefault();
+                e.returnValue = 'Keep-alive monitor is running. Are you sure you want to close?';
+            }
+        });
+    </script>
+</body>
+</html>
+
+
