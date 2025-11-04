@@ -146,6 +146,44 @@ async def health_check():
     return {"status": "healthy", "service": settings.PROJECT_NAME}
 
 
+@fastapi_app.websocket("/ws/keepalive")
+async def keepalive_websocket(websocket):
+    """
+    WebSocket endpoint to maintain persistent connection
+    Prevents Render from shutting down the service due to inactivity
+    """
+    from fastapi import WebSocket, WebSocketDisconnect
+    import asyncio
+    from datetime import datetime
+    
+    await websocket.accept()
+    print("🔌 [KEEP-ALIVE] WebSocket connected - service will stay alive")
+    
+    try:
+        while True:
+            # Send ping every 30 seconds to maintain connection
+            await websocket.send_json({
+                "type": "ping",
+                "timestamp": datetime.utcnow().isoformat(),
+                "status": "alive",
+                "service": settings.PROJECT_NAME
+            })
+            print("💓 [KEEP-ALIVE] Heartbeat sent")
+            await asyncio.sleep(30)
+            
+            # Try to receive pong (non-blocking)
+            try:
+                data = await asyncio.wait_for(websocket.receive_text(), timeout=1.0)
+                print(f"📥 [KEEP-ALIVE] Pong received: {data}")
+            except asyncio.TimeoutError:
+                pass  # No pong received, continue anyway
+                
+    except WebSocketDisconnect:
+        print("🔌 [KEEP-ALIVE] WebSocket disconnected")
+    except Exception as e:
+        print(f"❌ [KEEP-ALIVE] WebSocket error: {e}")
+
+
 # Wrap FastAPI app with Socket.IO for WebSocket support
 app = socketio.ASGIApp(socket_service.sio, other_asgi_app=fastapi_app)
 
