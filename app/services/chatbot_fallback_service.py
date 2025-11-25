@@ -328,6 +328,7 @@ class ChatbotFallbackService:
             print(f"Personality: {personality}")
             print(f"AI User ID: {session_data.get('ai_user_id', 'unknown')}")
             
+<<<<<<< HEAD
             # Verify personality is being used - get session to check template_id
             session_info = await session_service.get_session(chatbot_session_id)
             if session_info.get("success"):
@@ -336,6 +337,8 @@ class ChatbotFallbackService:
                 if session_template != personality:
                     print(f"[WARN] Personality mismatch! Session has {session_template} but AI session has {personality}")
             
+=======
+>>>>>>> 25e5091 (commit)
             # Increment exchange count in queue service
             exchange_info = await queue_service.increment_ai_exchanges(user_id)
             current_exchanges = exchange_info.get("exchanges", 0)
@@ -453,8 +456,11 @@ class ChatbotFallbackService:
                 )
                 
                 print(f"[AI_FALLBACK] Created AI chatbot session for user {user_id} with personality {personality}")
+<<<<<<< HEAD
         print(f"[AI_FALLBACK] Chatbot session ID: {chatbot_session_id}")
         print(f"[AI_FALLBACK] AI User Profile: {json.dumps(ai_user_data, indent=2)}")
+=======
+>>>>>>> 25e5091 (commit)
                 
                 return session_data
             
