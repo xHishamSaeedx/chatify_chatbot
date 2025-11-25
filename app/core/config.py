@@ -82,6 +82,15 @@ class Settings(BaseSettings):
     REDIS_DB: int = 0
     REDIS_PASSWORD: Optional[str] = None
     
+    # Queue Configuration
+    QUEUE_TIMEOUT_SECONDS: int = 15
+    QUEUE_BATCH_INTERVAL_SECONDS: float = 0.5
+    AI_CHAT_MAX_EXCHANGES: int = 8
+    AI_CHAT_MAX_DURATION_SECONDS: int = 180
+    AD_ROTATION_INTERVAL_SECONDS: int = 10
+    ACTIVE_COUNT_UPDATE_INTERVAL_SECONDS: int = 5
+    RECONNECT_GRACE_PERIOD_SECONDS: int = 30
+    
     @validator("BACKEND_CORS_ORIGINS", pre=True)
     def assemble_cors_origins(cls, v):
         if v is None:

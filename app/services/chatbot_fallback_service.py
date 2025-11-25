@@ -12,6 +12,8 @@ from app.services.redis_service import redis_service
 from app.services.session_service import session_service
 from app.services.analytics_service import analytics_service
 from app.services.firebase_service import firebase_service
+from app.services.queue_service import queue_service
+from app.core.config import settings
 
 
 class ChatbotFallbackService:
@@ -290,7 +292,7 @@ class ChatbotFallbackService:
     
     async def send_ai_message(self, user_id: str, message: str) -> Optional[Dict[str, Any]]:
         """
-        Send message to AI chatbot
+        Send message to AI chatbot with exchange tracking and auto-requeue logic
         
         Args:
             user_id: User identifier
@@ -325,6 +327,18 @@ class ChatbotFallbackService:
             print(f"Personality: {session_data.get('personality', 'unknown')}")
             print(f"AI User ID: {session_data.get('ai_user_id', 'unknown')}")
             
+            # Increment exchange count in queue service
+            exchange_info = await queue_service.increment_ai_exchanges(user_id)
+            current_exchanges = exchange_info.get("exchanges", 0)
+            max_exchanges = exchange_info.get("max_exchanges", settings.AI_CHAT_MAX_EXCHANGES)
+            
+            print(f"[AI_FALLBACK] Exchange count: {current_exchanges}/{max_exchanges}")
+            
+            # Check if should end AI chat
+            should_end = await queue_service.should_end_ai_chat(user_id)
+            if should_end:
+                print(f"[AI_FALLBACK] AI chat limit reached for user {user_id}, will requeue after response")
+            
             # Send message to chatbot
             print(f"[AI_FALLBACK] Forwarding message to session service...")
             response = await session_service.send_message(chatbot_session_id, message)
@@ -337,6 +351,7 @@ class ChatbotFallbackService:
                 print(f"AI Response: {response.get('response', '')}")
                 print(f"Session Message Count: {response.get('message_count', 0)}")
                 print(f"AI User ID: {session_data.get('ai_user_id')}")
+                print(f"Exchange Count: {current_exchanges}/{max_exchanges}")
                 print(f"Timestamp: {__import__('datetime').datetime.now().isoformat()}")
                 print("="*80 + "\n")
                 
@@ -348,18 +363,96 @@ class ChatbotFallbackService:
                     personality=session_data.get("personality")
                 )
                 
-                return {
+                result = {
                     "success": True,
                     "message": response["response"],
                     "ai_user_id": session_data.get("ai_user_id"),
-                    "session_id": session_data.get("session_id")
+                    "session_id": session_data.get("session_id"),
+                    "exchange_count": current_exchanges,
+                    "max_exchanges": max_exchanges,
+                    "should_end": should_end
                 }
+                
+                # If should end, trigger requeue (will be handled by background task)
+                if should_end:
+                    result["requeue_pending"] = True
+                
+                return result
             else:
                 print(f"❌ [AI_FALLBACK] Failed to send message to AI for user {user_id}: {response.get('error')}")
                 return None
                 
         except Exception as e:
             print(f"[AI_FALLBACK] Error sending AI message: {e}")
+            return None
+    
+    async def create_ai_chat_from_queue(self, user_id: str, socket_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Create AI chat session for user from queue (timeout reached)
+        
+        Args:
+            user_id: User identifier
+            socket_id: Socket.IO session ID
+            
+        Returns:
+            AI session data or None
+        """
+        try:
+            # Select random AI personality
+            personality = random.choice(self.available_personalities)
+            print(f"[AI_FALLBACK] Creating AI chat with personality: {personality}")
+            
+            # Create AI session ID
+            ai_session_id = str(uuid.uuid4())
+            
+            # Create fake user data for AI
+            ai_user_data = self._generate_ai_user_profile(personality)
+            
+            # Create session data
+            session_data = {
+                "session_id": ai_session_id,
+                "user_id": user_id,
+                "ai_user_id": ai_user_data["id"],
+                "personality": personality,
+                "is_ai_chatbot": True,
+                "created_at": datetime.utcnow().isoformat(),
+                "status": "active",
+                "ai_user_profile": ai_user_data
+            }
+            
+            # Store in Redis
+            await redis_service.set_ai_chatbot_session(user_id, session_data)
+            
+            # Store in active sessions
+            self.active_ai_sessions[ai_session_id] = session_data
+            
+            # Create actual chatbot session
+            chatbot_session = await session_service.create_session(
+                user_id=user_id,
+                template_id=personality
+            )
+            
+            if chatbot_session.get("success"):
+                session_data["chatbot_session_id"] = chatbot_session["session_id"]
+                
+                # Track analytics
+                analytics_service.track_ai_chatbot_fallback(
+                    user_id=user_id,
+                    personality=personality,
+                    wait_time=settings.QUEUE_TIMEOUT_SECONDS,
+                    session_id=ai_session_id
+                )
+                
+                print(f"[AI_FALLBACK] Created AI chatbot session for user {user_id} with personality {personality}")
+                
+                return session_data
+            
+            else:
+                print(f"[AI_FALLBACK] Failed to create chatbot session for user {user_id}")
+                return None
+                
+        except Exception as e:
+            print(f"[AI_FALLBACK] Error creating AI chat from queue: {e}")
             return None
     
     async def cleanup_expired_sessions(self) -> int:

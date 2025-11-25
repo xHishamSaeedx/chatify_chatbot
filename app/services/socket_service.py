@@ -41,6 +41,14 @@ class SocketService:
                 del self.user_sessions[sid]
                 if user_id in self.connected_users:
                     del self.connected_users[user_id]
+                
+                # Handle queue disconnection
+                try:
+                    from app.services.queue_service import queue_service
+                    await queue_service.handle_disconnect(user_id)
+                except Exception as e:
+                    print(f"[SOCKET] Error handling queue disconnect: {e}")
+                
                 print(f"[SOCKET] Cleaned up user mapping for {user_id}")
         
         @self.sio.event
@@ -159,6 +167,10 @@ class SocketService:
             except Exception as e:
                 print(f"[SOCKET] Error in end_random_chat_session: {e}")
                 await self.sio.emit('error', {'message': str(e)}, room=sid)
+        
+        # Queue-related socket events are handled by queue service and background tasks
+        # Events emitted: queue_joined, queue_matched, queue_timeout, queue_ad, 
+        # queue_status, ai_chat_started, ai_chat_ended, active_count_update
         
         print("[SOCKET] Socket.IO service initialized successfully")
     
