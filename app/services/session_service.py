@@ -44,7 +44,32 @@ class SessionService:
         current_time = datetime.utcnow()
         
         # Get and cache system prompt at session creation (only once!)
-        system_prompt = await self._get_system_prompt(template_id or "general-assistant")
+        template_id_final = template_id or "general-assistant"
+        system_prompt = await self._get_system_prompt(template_id_final)
+        
+        print(f"[SESSION] ✓ Created session with personality: {template_id_final}")
+        print(f"[SESSION] System prompt length: {len(system_prompt)} characters")
+        print(f"[SESSION] System prompt preview: {system_prompt[:300]}...")
+        
+        # Verify personality-specific content is in the prompt
+        personality_keywords = {
+            "flirty-romantic": ["flirty", "romantic", "charming", "dating app"],
+            "energetic-fun": ["energetic", "fun", "adventure", "excited"],
+            "anime-kawaii": ["kawaii", "anime", "desu", "cute"],
+            "mysterious-dark": ["mysterious", "short", "distant", "unimpressed"],
+            "supportive-caring": ["caring", "support", "sweetie", "help"],
+            "sassy-confident": ["sassy", "confident", "unimpressed", "indifferent"]
+        }
+        
+        prompt_lower = system_prompt.lower()
+        for pers, keywords in personality_keywords.items():
+            if pers == template_id_final:
+                found_keywords = [kw for kw in keywords if kw in prompt_lower]
+                if found_keywords:
+                    print(f"[SESSION] ✓ Personality '{template_id_final}' verified - found keywords: {found_keywords}")
+                else:
+                    print(f"[SESSION] ⚠ Personality '{template_id_final}' may not be applied - no keywords found")
+                break
         
         # Set random response limit for this session (15-25 exchanges) - longer conversations
         response_limit = random.randint(15, 25)
@@ -244,6 +269,16 @@ class SessionService:
         
         # Use cached system prompt from session
         system_prompt = session.get("system_prompt", "")
+        template_id = session.get("template_id", "unknown")
+        
+        print(f"[SESSION] ✓ Using personality: {template_id} for message response")
+        print(f"[SESSION] System prompt length: {len(system_prompt)} characters")
+        if len(system_prompt) < 50:
+            print(f"[WARN] System prompt is very short, personality may not be applied correctly!")
+        else:
+            # Show a snippet of the prompt to verify personality content
+            prompt_snippet = system_prompt[:200].replace('\n', ' ')
+            print(f"[SESSION] Prompt snippet: {prompt_snippet}...")
         
         # Add user message to conversation history
         session["conversation_history"].append({
