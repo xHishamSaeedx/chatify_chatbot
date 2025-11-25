@@ -250,4 +250,3 @@ if [ -n "${OS:-}" ] && [ "$OS" = "Windows_NT" ]; then
     echo "# git push -u origin $BRANCH_NAME"
     echo "# Then open: $PR_URL"
 fi
-
